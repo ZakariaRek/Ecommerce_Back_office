@@ -18,6 +18,7 @@ import Blank from "./pages/Blank";
 import AppLayout from "./layout/AppLayout";
 import { ScrollToTop } from "./components/common/ScrollToTop";
 import Home from "./pages/Dashboard/Home";
+import ListProducts from "./pages/Product/ListProducts";
 
 export default function App() {
   return (
@@ -25,13 +26,20 @@ export default function App() {
       <Router>
         <ScrollToTop />
         <Routes>
+        <Route index path="/" element={<SignIn />} />
+        <Route path="/signup" element={<SignUp />} />
           {/* Dashboard Layout */}
           <Route element={<AppLayout />}>
-            <Route index path="/" element={<Home />} />
+         
+
+            {/* Dashboard */}
+            <Route index path="/dashboard" element={<Home />} />
 
             {/* Others Page */}
             <Route path="/profile" element={<UserProfiles />} />
             <Route path="/calendar" element={<Calendar />} />
+            <Route path="/product" element={<ListProducts />} />
+
             <Route path="/blank" element={<Blank />} />
 
             {/* Forms */}
