@@ -19,7 +19,7 @@ import Blank from "./pages/Blank";
 import AppLayout from "./layout/AppLayout";
 import { ScrollToTop } from "./components/common/ScrollToTop";
 import Home from "./pages/Dashboard/Home";
-import ListProducts from "./pages/Product/ListProducts";
+import ProductTable from "./pages/Product/ProductTable";
 import { AuthProvider } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -48,7 +48,7 @@ export default function App() {
             {/* Others Page */}
             <Route path="/profile" element={<UserProfiles />} />
             <Route path="/calendar" element={<Calendar />} />
-            <Route path="/product" element={<ListProducts />} />
+            <Route path="/product" element={<ProductTable />} />
             <Route path="/blank" element={<Blank />} />
 
             {/* Forms */}

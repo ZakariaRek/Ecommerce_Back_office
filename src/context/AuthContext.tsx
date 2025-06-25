@@ -21,6 +21,28 @@ interface AuthContextType {
   logout: () => Promise<void>;
 }
 
+// Cookie utility functions
+const setCookie = (name: string, value: string, days: number = 7) => {
+  const expires = new Date();
+  expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
+  document.cookie = `${name}=${value};expires=${expires.toUTCString()};path=/;SameSite=Strict;Secure`;
+};
+
+const getCookie = (name: string): string | null => {
+  const nameEQ = name + "=";
+  const ca = document.cookie.split(';');
+  for (let i = 0; i < ca.length; i++) {
+    let c = ca[i];
+    while (c.charAt(0) === ' ') c = c.substring(1, c.length);
+    if (c.indexOf(nameEQ) === 0) return c.substring(nameEQ.length, c.length);
+  }
+  return null;
+};
+
+const deleteCookie = (name: string) => {
+  document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;SameSite=Strict;Secure`;
+};
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const useAuth = () => {
@@ -45,14 +67,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     const checkAuthStatus = () => {
       try {
-        const storedUser = localStorage.getItem('user');
+        const storedUser = getCookie('user');
         if (storedUser) {
-          const userData = JSON.parse(storedUser);
+          const userData = JSON.parse(decodeURIComponent(storedUser));
           setUser(userData);
         }
       } catch (error) {
         console.error('Error parsing stored user data:', error);
-        localStorage.removeItem('user');
+        deleteCookie('user');
       } finally {
         setIsLoading(false);
       }
@@ -74,16 +96,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           roles: response.roles
         };
         setUser(userData);
-        localStorage.setItem('user', JSON.stringify(userData));
+        setCookie('user', encodeURIComponent(JSON.stringify(userData)), 7); // Cookie expires in 7 days
         return { success: true };
       } else {
         return { success: false, message: 'Invalid credentials' };
       }
-    } catch (error  ) {
+    } catch (error) {
       console.error('Login error:', error);
-      return { 
-        success: false, 
-        message:  'Login failed. Please try again.' 
+      return {
+        success: false,
+        message: 'Login failed. Please try again.'
       };
     } finally {
       setIsLoading(false);
@@ -97,8 +119,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.error('Logout error:', error);
     } finally {
       setUser(null);
-      localStorage.removeItem('user');
-      // Clear any other stored data if needed
+      deleteCookie('user');
+      // Clear any other stored cookies if needed
       // You might want to redirect to login page here
       window.location.href = '/signin';
     }
