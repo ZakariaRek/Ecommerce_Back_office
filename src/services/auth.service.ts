@@ -25,7 +25,7 @@ export async function login(data: LoginData): Promise<LoginResponse | null> {
     const res = await myAxios.post(`${Auth_URL}/signin`, data);
     if (res.status === 200 || res.status === 201) {
     console.log("Login :", res.data);
-
+        
       return res.data;
     } else {
       console.log("Error: Status is not 200");
