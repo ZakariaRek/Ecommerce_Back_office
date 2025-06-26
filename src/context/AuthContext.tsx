@@ -19,6 +19,7 @@ interface AuthContextType {
   isLoading: boolean;
   login: (data: LoginData) => Promise<{ success: boolean; message?: string }>;
   logout: () => Promise<void>;
+  token : string | null;
 }
 
 // Cookie utility functions
@@ -96,6 +97,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           roles: response.roles
         };
         setUser(userData);
+        setCookie('token', encodeURIComponent(JSON.stringify(response.token)), 7); // Cookie expires in 7 days
         setCookie('user', encodeURIComponent(JSON.stringify(userData)), 7); // Cookie expires in 7 days
         return { success: true };
       } else {
@@ -120,6 +122,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     } finally {
       setUser(null);
       deleteCookie('user');
+      deleteCookie('token');
       // Clear any other stored cookies if needed
       // You might want to redirect to login page here
       window.location.href = '/signin';
@@ -131,6 +134,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     isAuthenticated,
     isLoading,
     login,
+    token: getCookie('token'),
     logout
   };
 

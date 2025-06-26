@@ -25,9 +25,20 @@ interface Product {
 }
 
 // Helper function to get cookie value (improved version)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+// const getCookie = (name: string): string | null => {
+//   const cookies = document.cookie.split(';');
+//   for (let cookie of cookies) {
+//     const [cookieName, ...cookieValue] = cookie.trim().split('=');
+//     if (cookieName === name) {
+//       return cookieValue.join('=') || null;
+//     }
+//   }
+//   return null;
+// };
 const getCookie = (name: string): string | null => {
   const cookies = document.cookie.split(';');
-  for (let cookie of cookies) {
+  for (const cookie of cookies) { // Changed from 'let' to 'const'
     const [cookieName, ...cookieValue] = cookie.trim().split('=');
     if (cookieName === name) {
       return cookieValue.join('=') || null;
@@ -53,10 +64,39 @@ const formatDate = (dateString: string): string => {
   }).format(new Date(dateString));
 };
 
+// Token management - consider moving to a separate auth service
+const getAuthToken = (): string | null => {
+  // Try to get token from cookie first - check multiple possible cookie names
+  let tokenFromCookie = getCookie('token') || getCookie('auth-token') || getCookie('userservice');
+  
+  if (tokenFromCookie) {
+    // Decode URL-encoded token and remove extra quotes
+    tokenFromCookie = decodeURIComponent(tokenFromCookie);
+    
+    // Remove surrounding quotes if they exist
+    if (tokenFromCookie.startsWith('"') && tokenFromCookie.endsWith('"')) {
+      tokenFromCookie = tokenFromCookie.slice(1, -1);
+    }
+    
+    console.log('Token from cookie (cleaned):', tokenFromCookie);
+    return tokenFromCookie;
+  }
+  
+  // Fallback to localStorage (if needed)
+  try {
+    const tokenFromStorage = localStorage.getItem('auth-token');
+    console.log('Token from localStorage:', tokenFromStorage);
+    return tokenFromStorage;
+  } catch {
+    return null;
+  }
+};
 export default function ProductList() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -67,21 +107,33 @@ export default function ProductList() {
         // Temporary fix: Since user-service cookie is HttpOnly and not accessible to JavaScript,
         // we'll use the working JWT token from Postman for testing
         // TODO: Implement proper token management with backend team
-        const token = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ5YWh5YXNkNTciLCJyb2xlcyI6WyJST0xFX0FETUlOIl0sImlhdCI6MTc1MDc4MTIxNCwiZXhwIjoxNzUwODY3NjE0fQ.mG954OJ8_CjQAph3p1yNpNS0gBJTd3ReqXWKCt06jhA';
-        
+        // const token = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhZG1pbnVzZXIxMjM0Iiwicm9sZXMiOlsiUk9MRV9BRE1JTiJdLCJpYXQiOjE3NTA5NjUzMTEsImV4cCI6MTc1MTA1MTcxMX0._5S2g_kc0fHqYEPHq5lkad-GAdB2vwmPS-wOfNrPeus';
+        const token = getAuthToken();
+        console.log("token",token);
         if (!token) {
           throw new Error('Authentication token not found');
         }
+        console.log(`${API_GATEWAY_BASE_URL}/users`);
 
-        const response = await fetch(`${API_GATEWAY_BASE_URL}/products`, {
+        const response = await fetch(`${API_GATEWAY_BASE_URL}/products/products`, {
           method: 'GET',  
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
+            "Access-Control-Allow-Headers" : "Content-Type",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "OPTIONS,POST,GET"
+            // 'Accept': 'application/json',
+            // 'Access-Control-Allow-Origin':'*',
+            // 'Access-Control-Allow-Methods':'GET'
           },
+          // Enable CORS credentials
           credentials: 'include',
+          // Prevent redirect following in some cases
+          // redirect: 'follow'
+          // credentials: 'include',
         });
-
+        console.log("response",response);
         if (!response.ok) {
           throw new Error(`Failed to fetch products: ${response.status} ${response.statusText}`);
         }
