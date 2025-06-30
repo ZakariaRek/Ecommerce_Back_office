@@ -22,12 +22,13 @@ import Home from "./pages/Dashboard/Home";
 
 import { AuthProvider } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
-import AddProductForm from "./pages/Product/ProductForm";
-import ProductList from "./pages/Product/ProductList";
+import AddProductForm from "./pages/Product/Product/ProductForm";
+import ProductList from "./pages/Product/Product/ProductList";
 import UserList from "./pages/users/UserList";
-import SupplierForm from "./pages/Product/CreateSupplier";
-import CategoryCreateForm from "./pages/Product/CategoryCreateForm";
-import CategoryList from "./pages/Product/CategoryList";
+import SupplierForm from "./pages/Product/Supplier/CreateSupplier";
+import CategoryCreateForm from "./pages/Product/Categorie/CategoryCreateForm";
+import CategoryList from "./pages/Product/Categorie/CategoryList";
+import SupplierList from "./pages/Product/Supplier/SupplierList";
 
 export default function App() {
   return (
@@ -57,6 +58,7 @@ export default function App() {
             {/* Product */}
             <Route path="/product" element={<ProductList />} />
             <Route path="/Categorie" element={<CategoryList />} />
+            <Route path="/Supplier" element={<SupplierList />} />
             <Route path="/product-form" element={<AddProductForm />} />
             <Route path="/Supplier-form" element={<SupplierForm/>} />
             <Route path="/Categorie-form" element={<CategoryCreateForm/>} />

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Product_Service_URL } from "../../lib/apiEndPoints";
+import { Product_Service_URL } from "../../../lib/apiEndPoints";
 
 interface CreateCategoryProps {
   onCategoryCreated?: (category: any) => void;
