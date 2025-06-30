@@ -25,6 +25,9 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import AddProductForm from "./pages/Product/ProductForm";
 import ProductList from "./pages/Product/ProductList";
 import UserList from "./pages/users/UserList";
+import SupplierForm from "./pages/Product/CreateSupplier";
+import CategoryCreateForm from "./pages/Product/CategoryCreateForm";
+import CategoryList from "./pages/Product/CategoryList";
 
 export default function App() {
   return (
@@ -53,7 +56,10 @@ export default function App() {
 
             {/* Product */}
             <Route path="/product" element={<ProductList />} />
+            <Route path="/Categorie" element={<CategoryList />} />
             <Route path="/product-form" element={<AddProductForm />} />
+            <Route path="/Supplier-form" element={<SupplierForm/>} />
+            <Route path="/Categorie-form" element={<CategoryCreateForm/>} />
             
             {/* Others Page */}
             <Route path="/profile" element={<UserProfiles />} />
