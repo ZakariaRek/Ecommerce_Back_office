@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 
-import { Product_Service_URL } from "../../lib/apiEndPoints";
+import { Product_Service_URL } from "../../../lib/apiEndPoints";
 type FormStep = 'basic' | 'pricing' | 'images';
 
 interface UploadedFile extends File {
