@@ -10,16 +10,18 @@ const getImageUrl = (imagePath: string): string => {
     return imagePath;
   }
   
+  // Extract base URL without /api/products
+  const baseUrl = Product_Service_URL.replace('/api/products', '');  // Get just http://localhost:8099
+  
   // If it starts with /api/, prepend the base server URL
   if (imagePath.startsWith('/api/')) {
-    return `${Product_Service_URL}${imagePath}`;
+    return `${baseUrl}${imagePath}`;
   }
   
-  // For other relative paths, prepend the server URL
+  // For other relative paths, prepend the server URL  
   const cleanPath = imagePath.startsWith('/') ? imagePath : `/${imagePath}`;
-  return `${Product_Service_URL}${cleanPath}`;
+  return `${baseUrl}${cleanPath}`;
 };
-
 interface Product {
   id: string;
   name: string;
