@@ -1,22 +1,35 @@
-import PageBreadcrumb from "../../components/common/PageBreadCrumb";
-import ComponentCard from "../../components/common/ComponentCard";
-import PageMeta from "../../components/common/PageMeta";
-import InventoryList from "../../components/tables/Product/InventoryList";
+// src/pages/Inventory/InventoryPage.tsx
+import React from 'react';
+import InventoryManagement from '../../components/tables/Product/InventoryTable';
+import { InventoryProvider } from '../../context/InventoryContext';
+import ComponentCard from '../../components/common/ComponentCard';
+import PageBreadcrumb from '../../components/common/PageBreadCrumb';
 
-export default function InventoryTable() {
-  
+const InventoryPage: React.FC = () => {
   return (
-    <>
-      <PageMeta
-        title="Inventory Table | TailAdmin - Next.js Admin Dashboard Template"
-        description="Inventory Table - React.js Tailwind CSS Admin Dashboard Template"
-      />
-      <PageBreadcrumb pageTitle="Inventory Tables" />
-      <div className="space-y-6">
-        <ComponentCard title="Inventory Table">
-          <InventoryList /> {/* Now includes all dashboard functionality */}
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Page Header */}
+        <div className="mb-8">
+          
+          {/* Breadcrumb */}
+          <PageBreadcrumb pageTitle="Inventory List" />
+
+
+        </div>
+
+        {/* Main Content */}
+        <ComponentCard title="Inventory Table ">
+
+        <InventoryProvider>
+
+        <InventoryManagement />
+
+        </InventoryProvider>
         </ComponentCard>
       </div>
-    </>
+    </div>
   );
-}
+};
+
+export default InventoryPage;

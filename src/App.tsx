@@ -30,6 +30,8 @@ import CategoryCreateForm from "./pages/Product/Categorie/CategoryCreateForm";
 import CategoryList from "./pages/Product/Categorie/CategoryList";
 import SupplierList from "./pages/Product/Supplier/SupplierList";
 import InventoryTable from "./pages/Inventory/InventoryTable";
+import CreateInventoryPage from "./pages/Inventory/CreateInventoryPage";
+import EditInventoryPage from "./pages/Inventory/EditInventoryPage";
 
 export default function App() {
   return (
@@ -71,6 +73,9 @@ export default function App() {
             {/* Products */}
 
             <Route path="/inventory" element={<InventoryTable />} />
+            <Route path="/inventory/create" element={<CreateInventoryPage />} />
+            <Route path="/inventory/edit/:id" element={<EditInventoryPage />} />
+
 
             <Route path="/blank" element={<Blank />} />
 

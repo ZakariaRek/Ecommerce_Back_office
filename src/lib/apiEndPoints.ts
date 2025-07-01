@@ -10,7 +10,7 @@ export const Product_Service_URL = BASE_URL + "products";
 export const IMAGE_GLOBAL_PATH = "C:\\Users\\DELL\\Downloads\\Ecommerce\\Ecommerce-App\\uploads\\images";
 
 // Inventory Service URLs - going through Gateway
-export const Inventory_Service_URL = BASE_URL + "/inventory";
+export const Inventory_Service_URL = BASE_URL + "products/inventory";
 
 
 
