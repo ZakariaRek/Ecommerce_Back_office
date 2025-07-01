@@ -1,92 +1,389 @@
-import React from 'react';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHeader,
-  TableRow,
-} from "../../ui/table";
-import Badge from "../../ui/badge/Badge";
-import {
-  useInventory,
-  useInventoryFilters,
-  useInventorySelection,
-  useInventoryModals
-} from '../../../context/InventoryContext';
+// src/components/InventoryTable.tsx
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { InventoryService, Inventory } from '../../../services/inventory.service';
 
-// Updated interface to match backend response
-interface InventoryItem {
-  id: string;
-  productId: string;
-  quantity: number;
-  available: boolean;
-  warehouseLocation: string;
-  reserved: number;
-  lastRestocked: string | null;
-  
-  // Product information (flat properties from backend)
-  productName: string | null;
-  productSku: string | null;
-  productPrice?: number | null;
-  productStatus?: string | null;
-  
-  // Stock information
-  lowStockThreshold: number;
-  isLowStock: boolean;
-  isOutOfStock: boolean;
-  stockStatus: string;
-  availableQuantity: number;
-  
-  // Warehouse information
-  warehouseCode?: string | null;
-  warehouseName?: string | null;
-  warehouseRegion?: string | null;
-}
+// Stats Component
+const InventoryStats: React.FC<{ inventory: Inventory[] }> = ({ inventory }) => {
+  const stats = React.useMemo(() => {
+    return {
+      total: inventory.length,
+      inStock: inventory.filter(item => !item.isLowStock && !item.isOutOfStock).length,
+      lowStock: inventory.filter(item => item.isLowStock && !item.isOutOfStock).length,
+      outOfStock: inventory.filter(item => item.isOutOfStock).length,
+    };
+  }, [inventory]);
 
-// Helper function to format date
-const formatDate = (dateString: string): string => {
-  return new Intl.DateTimeFormat('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  }).format(new Date(dateString));
+  const statCards = [
+    { title: 'Total Products', value: stats.total, color: 'blue', icon: '📦' },
+    { title: 'In Stock', value: stats.inStock, color: 'green', icon: '✅' },
+    { title: 'Low Stock', value: stats.lowStock, color: 'yellow', icon: '⚠️' },
+    { title: 'Out of Stock', value: stats.outOfStock, color: 'red', icon: '❌' },
+  ];
+
+  const getColorClasses = (color: string) => {
+    const colors = {
+      blue: 'text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/30',
+      green: 'text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/30',
+      yellow: 'text-yellow-600 dark:text-yellow-400 bg-yellow-100 dark:bg-yellow-900/30',
+      red: 'text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/30',
+    };
+    return colors[color as keyof typeof colors] || colors.blue;
+  };
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+      {statCards.map((card, index) => (
+        <div key={index} className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">{card.title}</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{card.value}</p>
+            </div>
+            <div className={`w-12 h-12 rounded-lg flex items-center justify-center text-xl ${getColorClasses(card.color)}`}>
+              {card.icon}
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 };
 
-// Helper function to get stock status
-const getStockStatus = (quantity: number, lowStockThreshold: number) => {
-  if (quantity === 0) return { status: 'OUT_OF_STOCK', color: 'error' as const };
-  if (quantity <= lowStockThreshold) return { status: 'LOW_STOCK', color: 'warning' as const };
-  return { status: 'IN_STOCK', color: 'success' as const };
+// Success Message Component
+const SuccessMessage: React.FC<{ message: string; onClose: () => void }> = ({ message, onClose }) => {
+  useEffect(() => {
+    const timer = setTimeout(onClose, 5000);
+    return () => clearTimeout(timer);
+  }, [onClose]);
+
+  return (
+    <div className="mb-6 p-4 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-lg">
+      <div className="flex">
+        <div className="flex-shrink-0">
+          <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+          </svg>
+        </div>
+        <div className="ml-3 flex-1">
+          <p className="text-sm text-green-800 dark:text-green-200">{message}</p>
+        </div>
+        <div className="ml-auto pl-3">
+          <button
+            onClick={onClose}
+            className="text-green-400 hover:text-green-600 dark:hover:text-green-300"
+          >
+            <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 };
 
-// Helper function to safely get product name
-const getProductDisplayName = (item: InventoryItem): string => {
-  return item.productName || item.productSku || `Product ${item.productId.substring(0, 8)}...`;
+// Filters Component
+const InventoryFilters: React.FC<{
+  searchTerm: string;
+  setSearchTerm: (term: string) => void;
+  filterStatus: string;
+  setFilterStatus: (status: string) => void;
+  selectedItems: Set<string>;
+  onBulkDelete: () => void;
+  onExport: () => void;
+  onClearSelection: () => void;
+}> = ({
+  searchTerm,
+  setSearchTerm,
+  filterStatus,
+  setFilterStatus,
+  selectedItems,
+  onBulkDelete,
+  onExport,
+  onClearSelection
+}) => {
+  const navigate = useNavigate();
+
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
+      <div className="flex flex-col lg:flex-row gap-4">
+        {/* Search */}
+        <div className="flex-1">
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
+            <input
+              type="text"
+              placeholder="Search by product name, SKU, or warehouse..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+            />
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm('')}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center"
+              >
+                <svg className="h-4 w-4 text-gray-400 hover:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Filters and Actions */}
+        <div className="flex flex-wrap gap-3">
+          <select
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+          >
+            <option value="all">All Status</option>
+            <option value="in_stock">In Stock</option>
+            <option value="low_stock">Low Stock</option>
+            <option value="out_of_stock">Out of Stock</option>
+          </select>
+
+          {selectedItems.size > 0 && (
+            <>
+              <button
+                onClick={onBulkDelete}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              >
+                Delete ({selectedItems.size})
+              </button>
+              <button
+                onClick={onClearSelection}
+                className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              >
+                Clear
+              </button>
+            </>
+          )}
+
+          <button
+            onClick={onExport}
+            className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+          >
+            📄 Export CSV
+          </button>
+
+          <button
+            onClick={() => navigate('/inventory/create')}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            ➕ Add Inventory
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 };
 
-// Helper function to safely get product SKU
-const getProductDisplaySku = (item: InventoryItem): string => {
-  return item.productSku || 'NO-SKU';
+// Stock Adjustment Modal
+const StockAdjustModal: React.FC<{
+  item: Inventory | null;
+  show: boolean;
+  onClose: () => void;
+  onAdjust: (id: string, adjustment: number, reason?: string) => Promise<void>;
+}> = ({ item, show, onClose, onAdjust }) => {
+  const [adjustment, setAdjustment] = useState(0);
+  const [type, setType] = useState<'add' | 'subtract'>('add');
+  const [reason, setReason] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!item) return;
+
+    setLoading(true);
+    try {
+      const finalAdjustment = type === 'add' ? adjustment : -adjustment;
+      await onAdjust(item.id, finalAdjustment, reason);
+      onClose();
+      setAdjustment(0);
+      setReason('');
+    } catch (error) {
+      console.error('Failed to adjust stock:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!show || !item) return null;
+
+  const newQuantity = type === 'add' ? item.quantity + adjustment : item.quantity - adjustment;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Adjust Stock</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+            ✕
+          </button>
+        </div>
+
+        <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+          <p className="font-medium text-gray-900 dark:text-white">{item.productName}</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Current: {item.quantity} units</p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Type</label>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setType('add')}
+                className={`flex-1 px-3 py-2 rounded-lg border transition-colors ${
+                  type === 'add' ? 'bg-green-100 border-green-500 text-green-700' : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                ➕ Add Stock
+              </button>
+              <button
+                type="button"
+                onClick={() => setType('subtract')}
+                className={`flex-1 px-3 py-2 rounded-lg border transition-colors ${
+                  type === 'subtract' ? 'bg-red-100 border-red-500 text-red-700' : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                ➖ Remove Stock
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Amount</label>
+            <input
+              type="number"
+              required
+              min="1"
+              max={type === 'subtract' ? item.quantity : undefined}
+              value={adjustment}
+              onChange={(e) => setAdjustment(parseInt(e.target.value) || 0)}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Reason (Optional)</label>
+            <select
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+            >
+              <option value="">Select a reason...</option>
+              <option value="restock">Restock</option>
+              <option value="sold">Sold</option>
+              <option value="damaged">Damaged/Lost</option>
+              <option value="returned">Customer Return</option>
+              <option value="transfer">Warehouse Transfer</option>
+              <option value="audit">Inventory Audit</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+
+          <div className={`p-3 rounded-lg ${
+            newQuantity < 0 ? 'bg-red-50 text-red-700' : 
+            newQuantity <= item.lowStockThreshold ? 'bg-yellow-50 text-yellow-700' : 'bg-blue-50 text-blue-700'
+          }`}>
+            <p className="text-sm">New quantity: {Math.max(0, newQuantity)} units</p>
+            {newQuantity < 0 && <p className="text-xs mt-1">Cannot be negative!</p>}
+            {newQuantity <= item.lowStockThreshold && newQuantity >= 0 && (
+              <p className="text-xs mt-1">Will be below threshold</p>
+            )}
+          </div>
+
+          <div className="flex gap-3 pt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={loading || newQuantity < 0}
+              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+            >
+              {loading ? 'Adjusting...' : 'Apply'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
 };
 
-export const InventoryTable1: React.FC = () => {
-  const { loading, error, refreshing, handleRefresh } = useInventory();
-  const { filteredAndSortedInventory } = useInventoryFilters();
-  const { 
-    selectedItems, 
-    handleSelectAll, 
-    handleSelectItem 
-  } = useInventorySelection();
-  const { 
-    setEditingInventory, 
-    setAdjustingInventory 
-  } = useInventoryModals();
+// Main Table Component
+const MainInventoryTable: React.FC<{
+  inventory: Inventory[];
+  loading: boolean;
+  error: string | null;
+  onRefresh: () => void;
+  selectedItems: Set<string>;
+  onSelectItem: (id: string) => void;
+  onSelectAll: () => void;
+}> = ({ inventory, loading, error, onRefresh, selectedItems, onSelectItem, onSelectAll }) => {
+  const navigate = useNavigate();
+  const [adjustingItem, setAdjustingItem] = useState<Inventory | null>(null);
+
+  const handleEdit = (item: Inventory) => {
+    navigate(`/inventory/edit/${item.id}`);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (confirm('Are you sure you want to delete this inventory item?')) {
+      try {
+        await InventoryService.deleteInventory(id);
+        onRefresh();
+      } catch (error) {
+        console.error('Failed to delete inventory:', error);
+      }
+    }
+  };
+
+  const handleStockAdjust = async (id: string, adjustment: number, reason?: string) => {
+    try {
+      await InventoryService.adjustStock(id, adjustment, reason);
+      onRefresh();
+    } catch (error) {
+      console.error('Failed to adjust stock:', error);
+      throw error;
+    }
+  };
+
+  const getStatusBadge = (item: Inventory) => {
+    if (item.isOutOfStock) {
+      return <span className="px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded-full">Out of Stock</span>;
+    }
+    if (item.isLowStock) {
+      return <span className="px-2 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full">Low Stock</span>;
+    }
+    return <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">In Stock</span>;
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Intl.DateTimeFormat('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    }).format(new Date(dateString));
+  };
 
   if (loading) {
     return (
-      <div className="overflow-hidden rounded-2xl border border-gray-200/60 bg-white shadow-sm dark:border-white/[0.08] dark:bg-gray-900/40">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
         <div className="flex items-center justify-center h-64">
           <div className="flex flex-col items-center gap-3">
             <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
@@ -99,21 +396,17 @@ export const InventoryTable1: React.FC = () => {
 
   if (error) {
     return (
-      <div className="overflow-hidden rounded-2xl border border-red-200/60 bg-white shadow-sm dark:border-red-500/20 dark:bg-gray-900/40">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-red-200 dark:border-red-800">
         <div className="flex items-center justify-center h-64">
-          <div className="flex flex-col items-center gap-3 text-center max-w-md">
-            <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
-              <svg className="w-6 h-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
+          <div className="text-center">
+            <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center mx-auto mb-3">
+              <span className="text-red-600 dark:text-red-400 text-xl">⚠️</span>
             </div>
-            <div>
-              <p className="text-red-600 dark:text-red-400 font-medium">Error loading inventory</p>
-              <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">{error}</p>
-            </div>
+            <p className="text-red-600 dark:text-red-400 font-medium">Error loading inventory</p>
+            <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">{error}</p>
             <button 
-              onClick={handleRefresh} 
-              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
+              onClick={onRefresh}
+              className="mt-3 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
             >
               Retry
             </button>
@@ -124,306 +417,309 @@ export const InventoryTable1: React.FC = () => {
   }
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-gray-200/60 bg-white shadow-sm backdrop-blur-sm dark:border-white/[0.08] dark:bg-gray-900/40">
-      {/* Table Header */}
-      <div className="px-6 py-5 border-b border-gray-200/60 dark:border-white/[0.08]">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Inventory Management</h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-              {filteredAndSortedInventory.length} products displayed
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
+    <>
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+              Inventory ({inventory.length})
+            </h3>
             <button
-              onClick={handleRefresh}
-              disabled={refreshing}
-              className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium disabled:opacity-50"
+              onClick={onRefresh}
+              className="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
             >
-              <svg 
-                className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} 
-                fill="none" 
-                stroke="currentColor" 
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-              {refreshing ? 'Refreshing...' : 'Refresh'}
+              🔄 Refresh
             </button>
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 dark:bg-green-900/20 rounded-full">
-              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-              <span className="text-xs font-medium text-green-700 dark:text-green-400">Live Data</span>
-            </div>
           </div>
         </div>
-      </div>
-      
-      {/* Table Content */}
-      <div className="max-w-full overflow-x-auto">
-        <Table>
-          <TableHeader className="bg-gray-50/50 dark:bg-white/[0.02]">
-            <TableRow className="border-b border-gray-200/60 dark:border-white/[0.08]">
-              <TableCell isHeader className="px-6 py-4 w-12">
-                <input
-                  type="checkbox"
-                  checked={selectedItems.size === filteredAndSortedInventory.length && filteredAndSortedInventory.length > 0}
-                  onChange={handleSelectAll}
-                  className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
-                />
-              </TableCell>
-              <TableCell
-                isHeader
-                className="px-6 py-4 font-semibold text-gray-700 text-start text-xs uppercase tracking-wider dark:text-gray-300"
-              >
-                Product
-              </TableCell>
-              <TableCell
-                isHeader
-                className="px-6 py-4 font-semibold text-gray-700 text-start text-xs uppercase tracking-wider dark:text-gray-300"
-              >
-                Stock Status
-              </TableCell>
-              <TableCell
-                isHeader
-                className="px-6 py-4 font-semibold text-gray-700 text-start text-xs uppercase tracking-wider dark:text-gray-300"
-              >
-                Quantity
-              </TableCell>
-              <TableCell
-                isHeader
-                className="px-6 py-4 font-semibold text-gray-700 text-start text-xs uppercase tracking-wider dark:text-gray-300"
-              >
-                Warehouse
-              </TableCell>
-              <TableCell
-                isHeader
-                className="px-6 py-4 font-semibold text-gray-700 text-start text-xs uppercase tracking-wider dark:text-gray-300"
-              >
-                Last Restocked
-              </TableCell>
-              <TableCell
-                isHeader
-                className="px-6 py-4 font-semibold text-gray-700 text-start text-xs uppercase tracking-wider dark:text-gray-300"
-              >
-                Actions
-              </TableCell>
-            </TableRow>
-          </TableHeader>
 
-          <TableBody className="divide-y divide-gray-200/60 dark:divide-white/[0.08]">
-            {filteredAndSortedInventory.map((item) => {
-              const stockStatus = getStockStatus(item.quantity || 0, item.lowStockThreshold || 0);
-              
-              return (
-                <TableRow 
-                  key={item.id} 
-                  className={`hover:bg-gray-50/50 dark:hover:bg-white/[0.02] transition-colors duration-150 ${
-                    selectedItems.has(item.id) ? 'bg-blue-50/50 dark:bg-blue-900/20' : ''
-                  }`}
-                >
-                  <TableCell className="px-6 py-5">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50 dark:bg-gray-900/50">
+              <tr>
+                <th className="px-6 py-3 text-left">
+                  <input
+                    type="checkbox"
+                    checked={selectedItems.size === inventory.length && inventory.length > 0}
+                    onChange={onSelectAll}
+                    className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                  />
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  Product
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  Status
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  Quantity
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  Warehouse
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  Last Updated
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+              {inventory.map((item) => (
+                <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                  <td className="px-6 py-4">
                     <input
                       type="checkbox"
                       checked={selectedItems.has(item.id)}
-                      onChange={() => handleSelectItem(item.id)}
-                      className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                      onChange={() => onSelectItem(item.id)}
+                      className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
                     />
-                  </TableCell>
-
-                  <TableCell className="px-6 py-5">
-                    <div className="flex flex-col">
-                      <h4 className="font-semibold text-gray-900 dark:text-white text-sm">
-{item?.productName || item?.productSku || `Product ${item?.productId?.substring(0, 8)}...`}
-                      </h4>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        SKU: {item.productSku || 'NO-SKU'}
-                      </p>
-                      {/* Additional product info if available */}
-                      {item.productPrice && (
-                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-                          ${item.productPrice.toFixed(2)}
-                        </p>
-                      )}
+                  </td>
+                  <td className="px-6 py-4">
+                    <div>
+                      <div className="font-medium text-gray-900 dark:text-white">{item.productName}</div>
+                      <div className="text-sm text-gray-500 dark:text-gray-400">SKU: {item.productSku}</div>
                     </div>
-                  </TableCell>
-
-                  <TableCell className="px-6 py-5">
-                    <div className="flex flex-col gap-1">
-                      <Badge size="sm" color={stockStatus.color}>
-                        {stockStatus.status.replace('_', ' ')}
-                      </Badge>
-                      {/* Enhanced status indicators */}
-                      {item.isLowStock && !item.isOutOfStock && (
-                        <span className="text-xs text-yellow-600 dark:text-yellow-400 flex items-center gap-1">
-                          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                          </svg>
-                          Low Stock
-                        </span>
-                      )}
-                      {!item.available && (
-                        <span className="text-xs text-gray-500 dark:text-gray-400">
-                          Unavailable
-                        </span>
-                      )}
-                    </div>
-                  </TableCell>
-
-                  <TableCell className="px-6 py-5">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-gray-900 dark:text-white">
-                          {item.quantity.toLocaleString()}
-                        </span>
-                        {item.quantity <= (item.lowStockThreshold ?? 0) && item.quantity > 0 && (
-                          <svg className="w-4 h-4 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                          </svg>
-                        )}
-                        {item.quantity === 0 && (
-                          <svg className="w-4 h-4 text-red-500" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                          </svg>
-                        )}
-                      </div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                  </td>
+                  <td className="px-6 py-4">
+                    {getStatusBadge(item)}
+                  </td>
+                  <td className="px-6 py-4">
+                    <div>
+                      <div className="font-medium text-gray-900 dark:text-white">{item.quantity}</div>
+                      <div className="text-sm text-gray-500 dark:text-gray-400">
                         Threshold: {item.lowStockThreshold}
                       </div>
-                      {/* Available quantity display */}
-                      {item.availableQuantity !== item.quantity && (
-                        <div className="text-xs text-blue-600 dark:text-blue-400">
-                          Available: {item.availableQuantity}
-                        </div>
-                      )}
-                      {/* Reserved quantity display */}
                       {item.reserved > 0 && (
-                        <div className="text-xs text-orange-600 dark:text-orange-400">
+                        <div className="text-sm text-orange-600 dark:text-orange-400">
                           Reserved: {item.reserved}
                         </div>
                       )}
-                      {/* Stock level progress bar */}
-                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1">
-                        <div 
-                          className={`h-1 rounded-full transition-all duration-300 ${
-                            item.quantity === 0 
-                              ? 'bg-red-500' 
-                              : item.quantity <= (item.lowStockThreshold ?? 0)
-                                ? 'bg-yellow-500' 
-                                : 'bg-green-500'
-                          }`}
-                          style={{ 
-                            width: `${Math.min((item.quantity / ((item.lowStockThreshold ?? 10) * 2)) * 100, 100)}%`
-                          }}
-                        ></div>
-                      </div>
                     </div>
-                  </TableCell>
-
-                  <TableCell className="px-6 py-5">
-                    <div className="flex items-center gap-2">
-                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                      </svg>
-                      <div className="flex flex-col">
-                        <span className="text-sm text-gray-600 dark:text-gray-300">
-                          {item.warehouseLocation}
-                        </span>
-                        {/* Enhanced warehouse info */}
-                        {item.warehouseRegion && (
-                          <span className="text-xs text-gray-400 dark:text-gray-500">
-                            {item.warehouseRegion.replace('_', ' ')}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </TableCell>
-
-                  <TableCell className="px-6 py-5">
-                    <span className="text-xs text-gray-500 dark:text-gray-400">
-                      {item?.lastRestocked ? formatDate(item.lastRestocked) : (
-                        <span className="italic">Never restocked</span>
-                      )}
-                    </span>
-                  </TableCell>
-
-                  <TableCell className="px-6 py-5">
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
+                    {item.warehouseLocation.replace(/_/g, ' ')}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
+                    {formatDate(item.lastUpdated)}
+                  </td>
+                  <td className="px-6 py-4">
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={() => setAdjustingInventory({ ...item, lastUpdated: new Date().toISOString() })}
-                        className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors dark:bg-blue-900/30 dark:text-blue-400 dark:hover:bg-blue-900/50"
-                        title="Adjust stock quantity"
+                        onClick={() => setAdjustingItem(item)}
+                        className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
                       >
                         Adjust
                       </button>
                       <button
-                        onClick={() => setEditingInventory({ ...item, lastUpdated: new Date().toISOString() })}
-                        className="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-                        title="Edit inventory details"
+                        onClick={() => handleEdit(item)}
+                        className="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
                       >
                         Edit
                       </button>
-                      {/* Quick restock button for low stock items */}
-                      {item.isLowStock && !item.isOutOfStock && (
-                        <button
-                          onClick={() => {
-                            // You can integrate with your restock functionality here
-                            console.log('Quick restock for:', item.id);
-                          }}
-                          className="px-2 py-1 text-xs bg-green-100 text-green-700 rounded hover:bg-green-200 transition-colors dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-900/50"
-                          title="Quick restock"
-                        >
-                          Restock
-                        </button>
-                      )}
+                      <button
+                        onClick={() => handleDelete(item.id)}
+                        className="px-2 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors"
+                      >
+                        Delete
+                      </button>
                     </div>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {inventory.length === 0 && (
+            <div className="text-center py-12">
+              <p className="text-gray-500 dark:text-gray-400 mb-4">No inventory items found</p>
+              <button
+                onClick={() => navigate('/inventory/create')}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Add Your First Item
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Empty State */}
-      {filteredAndSortedInventory.length === 0 && !loading && (
-        <div className="flex items-center justify-center h-32">
-          <div className="text-center">
-            <svg className="w-12 h-12 text-gray-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
-            </svg>
-            <p className="text-gray-500 dark:text-gray-400">
-              No inventory found matching your criteria
-            </p>
-            <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">
-              Try adjusting your search or filter settings
-            </p>
-          </div>
-        </div>
+      <StockAdjustModal
+        item={adjustingItem}
+        show={!!adjustingItem}
+        onClose={() => setAdjustingItem(null)}
+        onAdjust={handleStockAdjust}
+      />
+    </>
+  );
+};
+
+// Main Component
+const InventoryManagement: React.FC = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
+  
+  // State
+  const [inventory, setInventory] = useState<Inventory[]>([]);
+  const [filteredInventory, setFilteredInventory] = useState<Inventory[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // Load inventory
+  const fetchInventory = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await InventoryService.getAllInventory();
+      setInventory(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch inventory');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Filter inventory
+  useEffect(() => {
+    const filtered = inventory.filter(item => {
+      // Search filter
+      if (searchTerm) {
+        const searchLower = searchTerm.toLowerCase();
+        const matchesSearch = 
+          item.productName?.toLowerCase().includes(searchLower) ||
+          item.productSku?.toLowerCase().includes(searchLower) ||
+          item.warehouseLocation?.toLowerCase().includes(searchLower);
+        
+        if (!matchesSearch) return false;
+      }
+      
+      // Status filter
+      switch (filterStatus) {
+        case 'in_stock':
+          return !item.isLowStock && !item.isOutOfStock;
+        case 'low_stock':
+          return item.isLowStock && !item.isOutOfStock;
+        case 'out_of_stock':
+          return item.isOutOfStock;
+        default:
+          return true;
+      }
+    });
+
+    setFilteredInventory(filtered);
+    // Clear selection when filters change
+    setSelectedItems(new Set());
+  }, [inventory, searchTerm, filterStatus]);
+
+  // Handle selection
+  const handleSelectItem = (id: string) => {
+    const newSelected = new Set(selectedItems);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedItems(newSelected);
+  };
+
+  const handleSelectAll = () => {
+    if (selectedItems.size === filteredInventory.length && filteredInventory.length > 0) {
+      setSelectedItems(new Set());
+    } else {
+      setSelectedItems(new Set(filteredInventory.map(item => item.id)));
+    }
+  };
+
+  // Handle bulk delete
+  const handleBulkDelete = async () => {
+    if (selectedItems.size > 0 && confirm(`Delete ${selectedItems.size} selected items?`)) {
+      try {
+        await InventoryService.bulkDelete(Array.from(selectedItems));
+        setSelectedItems(new Set());
+        await fetchInventory();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to delete items');
+      }
+    }
+  };
+
+  // Handle export
+  const handleExport = () => {
+    const csvData = [
+      ['Product Name', 'SKU', 'Quantity', 'Low Stock Threshold', 'Warehouse', 'Status', 'Last Updated'],
+      ...filteredInventory.map(item => [
+        item.productName,
+        item.productSku,
+        item.quantity.toString(),
+        item.lowStockThreshold.toString(),
+        item.warehouseLocation,
+        item.stockStatus.replace('_', ' '),
+        item.lastUpdated
+      ])
+    ];
+
+    const csvContent = csvData.map(row => row.join(',')).join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `inventory-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+
+  // Load data on mount
+  useEffect(() => {
+    fetchInventory();
+  }, []);
+
+  // Show success message from navigation state
+  useEffect(() => {
+    if (location.state?.message) {
+      setSuccessMessage(location.state.message);
+      // Clear the state to prevent showing the message again on refresh
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state, navigate, location.pathname]);
+
+  return (
+    <div className="space-y-6">
+      {successMessage && (
+        <SuccessMessage 
+          message={successMessage} 
+          onClose={() => setSuccessMessage(null)} 
+        />
       )}
-
-      {/* Enhanced Footer with Statistics */}
-      <div className="px-6 py-4 bg-gray-50/50 dark:bg-white/[0.02] border-t border-gray-200/60 dark:border-white/[0.08]">
-        <div className="flex flex-wrap gap-4 text-sm text-gray-600 dark:text-gray-400">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-            <span>In Stock: {filteredAndSortedInventory.filter(item => !item.isLowStock && !item.isOutOfStock).length}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-            <span>Low Stock: {filteredAndSortedInventory.filter(item => item.isLowStock && !item.isOutOfStock).length}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-            <span>Out of Stock: {filteredAndSortedInventory.filter(item => item.isOutOfStock).length}</span>
-          </div>
-          <div className="ml-auto">
-            <span>Total Inventory Value: {filteredAndSortedInventory.reduce((sum, item) => {
-              return sum + (item.quantity * (item.productPrice || 0));
-            }, 0).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</span>
-          </div>
-        </div>
-      </div>
+      
+      <InventoryStats inventory={inventory} />
+      
+      <InventoryFilters
+        searchTerm={searchTerm}
+        setSearchTerm={setSearchTerm}
+        filterStatus={filterStatus}
+        setFilterStatus={setFilterStatus}
+        selectedItems={selectedItems}
+        onBulkDelete={handleBulkDelete}
+        onExport={handleExport}
+        onClearSelection={() => setSelectedItems(new Set())}
+      />
+      
+      <MainInventoryTable
+        inventory={filteredInventory}
+        loading={loading}
+        error={error}
+        onRefresh={fetchInventory}
+        selectedItems={selectedItems}
+        onSelectItem={handleSelectItem}
+        onSelectAll={handleSelectAll}
+      />
     </div>
   );
 };
+
+export default InventoryManagement;
