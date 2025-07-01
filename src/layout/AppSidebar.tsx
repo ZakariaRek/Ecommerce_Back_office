@@ -35,14 +35,32 @@ const navItems: NavItem[] = [
     name: "Product",
 
     subItems: [
+      
       { name: "Product List", path: "/product", pro: false },
       { name: "Inventory List", path: "/inventory", pro: false },
+    
+      { name: "Add Product",path: "/product-form", pro: false },
+      { name: "Supplier List",path: "/Supplier", pro: false },
+      { name: "Add Supplier",path: "/Supplier-form", pro: false },
+      { name: "Categorie List",path: "/Categorie", pro: false },
+      { name: "Add Categorie",path: "/Categorie-form", pro: false },
+
+
+
+
     ],
+  
+
   },
   {
     icon: <CalenderIcon />,
     name: "Calendar",
     path: "/calendar",
+  },
+  {
+    icon: <UserCircleIcon />,
+    name: "User Management",
+    path: "/user-list",
   },
   {
     icon: <UserCircleIcon />,

@@ -19,9 +19,16 @@ import Blank from "./pages/Blank";
 import AppLayout from "./layout/AppLayout";
 import { ScrollToTop } from "./components/common/ScrollToTop";
 import Home from "./pages/Dashboard/Home";
-import ProductTable from "./pages/Product/ProductTable";
+
 import { AuthProvider } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
+import AddProductForm from "./pages/Product/Product/ProductForm";
+import ProductList from "./pages/Product/Product/ProductList";
+import UserList from "./pages/users/UserList";
+import SupplierForm from "./pages/Product/Supplier/CreateSupplier";
+import CategoryCreateForm from "./pages/Product/Categorie/CategoryCreateForm";
+import CategoryList from "./pages/Product/Categorie/CategoryList";
+import SupplierList from "./pages/Product/Supplier/SupplierList";
 import InventoryTable from "./pages/Inventory/InventoryTable";
 
 export default function App() {
@@ -46,13 +53,23 @@ export default function App() {
             {/* Dashboard */}
             <Route path="/dashboard" element={<Home />} />
 
+             {/* Users */}
+            <Route path="/user-list" element={<UserList />} />
+
+            {/* Product */}
+            <Route path="/product" element={<ProductList />} />
+            <Route path="/Categorie" element={<CategoryList />} />
+            <Route path="/Supplier" element={<SupplierList />} />
+            <Route path="/product-form" element={<AddProductForm />} />
+            <Route path="/Supplier-form" element={<SupplierForm/>} />
+            <Route path="/Categorie-form" element={<CategoryCreateForm/>} />
+            
             {/* Others Page */}
             <Route path="/profile" element={<UserProfiles />} />
-            <Route path="/calendar" element={<Calendar />} />
+            <Route path="/calendar" element={<Calendar />} />  
 
             {/* Products */}
 
-            <Route path="/product" element={<ProductTable />} />
             <Route path="/inventory" element={<InventoryTable />} />
 
             <Route path="/blank" element={<Blank />} />
