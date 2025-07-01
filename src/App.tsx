@@ -22,6 +22,7 @@ import Home from "./pages/Dashboard/Home";
 import ProductTable from "./pages/Product/ProductTable";
 import { AuthProvider } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
+import InventoryTable from "./pages/Inventory/InventoryTable";
 
 export default function App() {
   return (
@@ -48,7 +49,12 @@ export default function App() {
             {/* Others Page */}
             <Route path="/profile" element={<UserProfiles />} />
             <Route path="/calendar" element={<Calendar />} />
+
+            {/* Products */}
+
             <Route path="/product" element={<ProductTable />} />
+            <Route path="/inventory" element={<InventoryTable />} />
+
             <Route path="/blank" element={<Blank />} />
 
             {/* Forms */}

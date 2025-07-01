@@ -1,7 +1,7 @@
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import ComponentCard from "../../components/common/ComponentCard";
 import PageMeta from "../../components/common/PageMeta";
-import ProductList from "../../components/tables/BasicTables/ProductList";
+import ProductList from "../../components/tables/Product/ProductList";
 
 export default function ProductTable() {
   return (

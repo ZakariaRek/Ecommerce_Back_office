@@ -36,61 +36,61 @@ interface Product {
 //   }
 //   return null;
 // };
-const getCookie = (name: string): string | null => {
-  const cookies = document.cookie.split(';');
-  for (const cookie of cookies) { // Changed from 'let' to 'const'
-    const [cookieName, ...cookieValue] = cookie.trim().split('=');
-    if (cookieName === name) {
-      return cookieValue.join('=') || null;
+  const getCookie = (name: string): string | null => {
+    const cookies = document.cookie.split(';');
+    for (const cookie of cookies) { // Changed from 'let' to 'const'
+      const [cookieName, ...cookieValue] = cookie.trim().split('=');
+      if (cookieName === name) {
+        return cookieValue.join('=') || null;
+      }
     }
-  }
-  return null;
-};
-
-// Helper function to format currency
-const formatCurrency = (amount: number): string => {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD'
-  }).format(amount);
-};
-
-// Helper function to format date
-const formatDate = (dateString: string): string => {
-  return new Intl.DateTimeFormat('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric'
-  }).format(new Date(dateString));
-};
-
-// Token management - consider moving to a separate auth service
-const getAuthToken = (): string | null => {
-  // Try to get token from cookie first - check multiple possible cookie names
-  let tokenFromCookie = getCookie('token') || getCookie('auth-token') || getCookie('userservice');
-  
-  if (tokenFromCookie) {
-    // Decode URL-encoded token and remove extra quotes
-    tokenFromCookie = decodeURIComponent(tokenFromCookie);
-    
-    // Remove surrounding quotes if they exist
-    if (tokenFromCookie.startsWith('"') && tokenFromCookie.endsWith('"')) {
-      tokenFromCookie = tokenFromCookie.slice(1, -1);
-    }
-    
-    console.log('Token from cookie (cleaned):', tokenFromCookie);
-    return tokenFromCookie;
-  }
-  
-  // Fallback to localStorage (if needed)
-  try {
-    const tokenFromStorage = localStorage.getItem('auth-token');
-    console.log('Token from localStorage:', tokenFromStorage);
-    return tokenFromStorage;
-  } catch {
     return null;
-  }
-};
+  };
+
+  // Helper function to format currency
+  const formatCurrency = (amount: number): string => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD'
+    }).format(amount);
+  };
+
+  // Helper function to format date
+  const formatDate = (dateString: string): string => {
+    return new Intl.DateTimeFormat('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    }).format(new Date(dateString));
+  };
+
+  // Token management - consider moving to a separate auth service
+  const getAuthToken = (): string | null => {
+    // Try to get token from cookie first - check multiple possible cookie names
+    let tokenFromCookie = getCookie('token') || getCookie('auth-token') || getCookie('userservice');
+    
+    if (tokenFromCookie) {
+      // Decode URL-encoded token and remove extra quotes
+      tokenFromCookie = decodeURIComponent(tokenFromCookie);
+      
+      // Remove surrounding quotes if they exist
+      if (tokenFromCookie.startsWith('"') && tokenFromCookie.endsWith('"')) {
+        tokenFromCookie = tokenFromCookie.slice(1, -1);
+      }
+      
+      console.log('Token from cookie (cleaned):', tokenFromCookie);
+      return tokenFromCookie;
+    }
+    
+    // Fallback to localStorage (if needed)
+    try {
+      const tokenFromStorage = localStorage.getItem('auth-token');
+      console.log('Token from localStorage:', tokenFromStorage);
+      return tokenFromStorage;
+    } catch {
+      return null;
+    }
+  };
 export default function ProductList() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
