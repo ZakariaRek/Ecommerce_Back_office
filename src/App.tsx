@@ -29,6 +29,7 @@ import SupplierForm from "./pages/Product/Supplier/CreateSupplier";
 import CategoryCreateForm from "./pages/Product/Categorie/CategoryCreateForm";
 import CategoryList from "./pages/Product/Categorie/CategoryList";
 import SupplierList from "./pages/Product/Supplier/SupplierList";
+import InventoryTable from "./pages/Inventory/InventoryTable";
 
 export default function App() {
   return (
@@ -66,6 +67,11 @@ export default function App() {
             {/* Others Page */}
             <Route path="/profile" element={<UserProfiles />} />
             <Route path="/calendar" element={<Calendar />} />  
+
+            {/* Products */}
+
+            <Route path="/inventory" element={<InventoryTable />} />
+
             <Route path="/blank" element={<Blank />} />
 
             {/* Forms */}
