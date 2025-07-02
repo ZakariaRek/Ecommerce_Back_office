@@ -12,6 +12,7 @@ const CreateInventoryPage: React.FC = () => {
   const [formData, setFormData] = useState<CreateInventoryRequest>({
     productId: '',
     quantity: 0,
+    available : true ,
     lowStockThreshold: 10,
     warehouseLocation: 'MAIN_WAREHOUSE',
     reserved: 0,
@@ -38,7 +39,8 @@ const CreateInventoryPage: React.FC = () => {
       try {
         setLoadingProducts(true);
         setError(null);
-        const productOptions = await ProductService.getProductOptions();
+        const productOptions = await ProductService.getProductNOOptions();
+        // console.log(productOptions);
         setProducts(productOptions);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load products');
@@ -68,6 +70,8 @@ const CreateInventoryPage: React.FC = () => {
 
     setLoading(true);
     setError(null);
+
+    console.log(formData);
 
     try {
       await InventoryService.createInventory(formData);

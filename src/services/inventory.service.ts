@@ -42,6 +42,7 @@ export interface Inventory {
 export interface CreateInventoryRequest {
   productId: string;
   quantity: number;
+  available : boolean ;
   lowStockThreshold: number;
   warehouseLocation: string;
   reserved?: number;
@@ -61,15 +62,86 @@ export interface StockAdjustmentRequest {
   reason?: string;
 }
 
+// Custom error class for inventory operations
+export class InventoryError extends Error {
+  constructor(
+    message: string,
+    public type: 'CONFLICT' | 'NOT_FOUND' | 'VALIDATION' | 'SERVER_ERROR' = 'SERVER_ERROR',
+    public details?: unknown | null
+  ) {
+    super(message);
+    this.name = 'InventoryError';
+  }
+}
+
 export class InventoryService {
   private static baseUrl = `${Inventory_Service_URL}`;
 
-  // Handle API responses
+  // Enhanced error handling
   private static async handleResponse<T>(response: Response): Promise<T> {
     if (!response.ok) {
-      const error = await response.text();
-      throw new Error(error || `HTTP ${response.status}: ${response.statusText}`);
+      let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+      let errorType: 'CONFLICT' | 'NOT_FOUND' | 'VALIDATION' | 'SERVER_ERROR' = 'SERVER_ERROR';
+      let errorDetails: unknown = null;
+
+      try {
+        const errorData = await response.json();
+        
+        // Handle structured error responses from backend
+        if (errorData.error) {
+          errorMessage = errorData.message || errorData.error;
+          
+          // Map backend error types to frontend types
+          switch (errorData.error) {
+            case 'CONFLICT':
+            case 'INVENTORY_ALREADY_EXISTS':
+              errorType = 'CONFLICT';
+              break;
+            case 'INVALID_INPUT':
+              errorType = 'VALIDATION';
+              break;
+            case 'NOT_FOUND':
+              errorType = 'NOT_FOUND';
+              break;
+            default:
+              errorType = 'SERVER_ERROR';
+          }
+          
+          errorDetails = errorData;
+        }
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      } catch (parseError) {
+        // If we can't parse the error response, try to get text
+        try {
+          const errorText = await response.text();
+          if (errorText) {
+            errorMessage = errorText;
+          }
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        } catch (textError) {
+          // Use the default HTTP error message
+        }
+      }
+
+      // Handle specific HTTP status codes
+      switch (response.status) {
+        case 404:
+          errorType = 'NOT_FOUND';
+          if (!errorDetails) {
+            errorMessage = 'Inventory item not found';
+          }
+          break;
+        case 409:
+          errorType = 'CONFLICT';
+          break;
+        case 400:
+          errorType = 'VALIDATION';
+          break;
+      }
+
+      throw new InventoryError(errorMessage, errorType, errorDetails);
     }
+    
     return await response.json();
   }
 
@@ -120,6 +192,8 @@ export class InventoryService {
     }
   }
 
+  // Get inventory by product ID
+  
   // Get inventory by ID
   static async getInventoryById(id: string): Promise<Inventory> {
     try {
@@ -222,7 +296,7 @@ export class InventoryService {
     }
   }
 
-  // Delete inventory
+  // Enhanced delete inventory with better error handling
   static async deleteInventory(id: string): Promise<void> {
     try {
       const response = await fetch(`${this.baseUrl}/${id}`, {
@@ -231,45 +305,9 @@ export class InventoryService {
         credentials: 'include',
       });
       
-      if (!response.ok) {
-        throw new Error(`Failed to delete inventory: ${response.status}`);
-      }
+      await this.handleResponse<void>(response);
     } catch (error) {
       console.error('Error deleting inventory:', error);
-      throw error;
-    }
-  }
-
-  // Adjust stock
-  static async adjustStock(id: string, adjustment: number, reason?: string): Promise<Inventory> {
-    try {
-      const response = await fetch(`${this.baseUrl}/${id}/adjust-stock`, {
-        method: 'PATCH',
-        headers: getAuthHeaders(),
-        credentials: 'include',
-        body: JSON.stringify({ adjustment, reason }),
-      });
-      
-      const item = await this.handleResponse<InventoryResponseDTO>(response);
-      
-      return {
-        id: item.id,
-        productId: item.productId,
-        productName: item.productName,
-        productSku: item.productSku,
-        quantity: item.quantity,
-        lowStockThreshold: item.lowStockThreshold,
-        warehouseLocation: item.warehouseLocation,
-        lastUpdated: item.lastUpdated,
-        available: item.available,
-        reserved: item.reserved,
-        isLowStock: item.isLowStock,
-        isOutOfStock: item.isOutOfStock,
-        availableQuantity: item.availableQuantity,
-        stockStatus: item.stockStatus,
-      };
-    } catch (error) {
-      console.error('Error adjusting stock:', error);
       throw error;
     }
   }
@@ -308,7 +346,7 @@ export class InventoryService {
     }
   }
 
-  // Bulk delete
+  // Enhanced bulk delete with better error handling
   static async bulkDelete(ids: string[]): Promise<void> {
     try {
       const response = await fetch(`${this.baseUrl}/bulk-delete`, {
@@ -318,9 +356,7 @@ export class InventoryService {
         body: JSON.stringify({ ids }),
       });
       
-      if (!response.ok) {
-        throw new Error(`Failed to bulk delete: ${response.status}`);
-      }
+      await this.handleResponse<void>(response);
     } catch (error) {
       console.error('Error bulk deleting inventory:', error);
       throw error;
