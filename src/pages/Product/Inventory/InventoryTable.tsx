@@ -1,9 +1,9 @@
 // src/pages/Inventory/InventoryPage.tsx
 import React from 'react';
-import InventoryManagement from '../../components/tables/Product/InventoryTable';
-import { InventoryProvider } from '../../context/InventoryContext';
-import ComponentCard from '../../components/common/ComponentCard';
-import PageBreadcrumb from '../../components/common/PageBreadCrumb';
+import InventoryManagement from '../../../components/tables/Product/InventoryTable';
+import { InventoryProvider } from '../../../context/InventoryContext';
+import ComponentCard from '../../../components/common/ComponentCard';
+import PageBreadcrumb from '../../../components/common/PageBreadCrumb';
 
 const InventoryPage: React.FC = () => {
   return (

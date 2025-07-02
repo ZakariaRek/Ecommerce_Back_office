@@ -48,6 +48,16 @@ export interface ProductSummaryDTO {
   supplierNames: string[];
 }
 
+// Add the missing ProductOption interface
+export interface ProductOption {
+  value: string;
+  label: string;
+  sku: string;
+  price?: number;
+  stock?: number;
+  status?: ProductStatus;
+}
+
 export interface CreateProductWithImagesResponse {
   product: ProductResponseDTO;
   imagesUploaded: number;
@@ -129,6 +139,28 @@ export class ProductService {
   // Get base URL for constructing image URLs
   static getBaseUrl(): string {
     return PRODUCT_BASE_URL;
+  }
+
+  // Add the missing getProductOptions method
+  static async getProductOptions(): Promise<ProductOption[]> {
+    try {
+      const products = await this.getAllProducts();
+      
+      // Filter only active products and convert to ProductOption format
+      return products
+        .filter(product => product.status === ProductStatus.ACTIVE)
+        .map(product => ({
+          value: product.id,
+          label: `${product.name} (${product.sku})`,
+          sku: product.sku,
+          price: product.price,
+          stock: product.stock,
+          status: product.status
+        }));
+    } catch (error) {
+      console.error('Error fetching product options:', error);
+      throw error;
+    }
   }
   
   // Get all products

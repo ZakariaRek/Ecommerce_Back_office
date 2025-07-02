@@ -2,9 +2,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 // import { ProductService, ProductOption } from '../../services/product.service';
-import { InventoryService, CreateInventoryRequest } from '../../services/inventory.service';
-import PageBreadcrumb from '../../components/common/PageBreadCrumb';
-
+import { InventoryService, CreateInventoryRequest } from '../../../services/inventory.service';
+import PageBreadcrumb from '../../../components/common/PageBreadCrumb';
+import { ProductService, ProductOption } from '../../../services/Product.service';
 const CreateInventoryPage: React.FC = () => {
   const navigate = useNavigate();
   
