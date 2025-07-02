@@ -1,15 +1,28 @@
 import { useState, useEffect } from "react";
 import { Product_Service_URL } from "../../../lib/apiEndPoints";
-// Assuming you have a similar API endpoint structure
 
-type FormStep = 'basic' | 'contract';
+type FormStep = 'basic' | 'contract' | 'products';
+
+interface Product {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  supplierId?: string;
+  supplierName?: string;
+  categoryId?: string;
+  categoryName?: string;
+  imageUrl?: string;
+  sku?: string;
+  stock?: number;
+}
 
 interface CreateSupplierProps {
   onSupplierCreated?: (supplier: any) => void;
   onCancel?: () => void;
 }
 
-// Modern styles (similar to your product form)
+// Modern styles
 const modernStyles = `
   .custom-scrollbar::-webkit-scrollbar {
     width: 6px;
@@ -18,11 +31,11 @@ const modernStyles = `
     background: transparent;
   }
   .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: linear-gradient(180deg, #3b82f6, #1d4ed8);
+    background: linear-gradient(180deg, #10b981, #059669);
     border-radius: 3px;
   }
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: linear-gradient(180deg, #1d4ed8, #1e40af);
+    background: linear-gradient(180deg, #059669, #047857);
   }
   .floating-card {
     background: linear-gradient(145deg, #ffffff, #f8fafc);
@@ -33,7 +46,7 @@ const modernStyles = `
     box-shadow: 20px 20px 60px #0f172a, -20px -20px 60px #374151;
   }
   .supplier-gradient {
-    background: linear-gradient(135deg, #059669 0%, #0891b2 50%, #7c3aed 100%);
+    background: linear-gradient(135deg, #10b981 0%, #059669 50%, #047857 100%);
   }
   .animate-float {
     animation: float 6s ease-in-out infinite;
@@ -64,7 +77,7 @@ const modernStyles = `
   }
 `;
 
-// Helper function to get cookie value (same as your product form)
+// Helper function to get cookie value
 const getCookie = (name: string): string | null => {
   const cookies = document.cookie.split(';');
   for (const cookie of cookies) {
@@ -76,7 +89,7 @@ const getCookie = (name: string): string | null => {
   return null;
 };
 
-// Token management (same as your product form)
+// Token management
 const getAuthToken = (): string | null => {
   let tokenFromCookie = getCookie('token') || getCookie('auth-token') || getCookie('userservice');
   
@@ -96,7 +109,7 @@ const getAuthToken = (): string | null => {
   }
 };
 
-// Simple components (same as your product form)
+// Simple components
 const Label = ({ htmlFor, className, children }: { htmlFor?: string; className?: string; children: React.ReactNode }) => (
   <label htmlFor={htmlFor} className={className}>{children}</label>
 );
@@ -171,17 +184,23 @@ export default function SupplierForm({ onSupplierCreated, onCancel }: CreateSupp
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  
+  // Products state
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loadingProducts, setLoadingProducts] = useState(false);
+  const [selectedProductIds, setSelectedProductIds] = useState<Set<string>>(new Set());
+  const [productSearchTerm, setProductSearchTerm] = useState('');
 
-  // Basic supplier information
+  // Basic supplier information (matching SupplierRequestDTO)
   const [formData, setFormData] = useState({
     name: '',
     contactInfo: '',
     address: '',
-    rating: 0
+    rating: 0.0
   });
 
-  // Contract details
-  const [contractDetails, setContractDetails] = useState({
+  // Contract details as Map<String, Object> structure
+  const [contractDetails, setContractDetails] = useState<Record<string, any>>({
     contractType: '',
     startDate: '',
     endDate: '',
@@ -207,12 +226,55 @@ export default function SupplierForm({ onSupplierCreated, onCancel }: CreateSupp
     };
   }, []);
 
+  // Fetch products when component mounts
+  useEffect(() => {
+    fetchProducts();
+  }, []);
+
+  const fetchProducts = async () => {
+    try {
+      setLoadingProducts(true);
+      const token = getAuthToken();
+      
+      const response = await fetch(`${Product_Service_URL}/products`, {
+        headers: {
+          'Authorization': token ? `Bearer ${token}` : '',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setProducts(data);
+      } else {
+        console.error('Failed to fetch products');
+      }
+    } catch (err) {
+      console.error('Error fetching products:', err);
+    } finally {
+      setLoadingProducts(false);
+    }
+  };
+
   const handleInputChange = (field: string, value: string | number) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
   const handleContractChange = (field: string, value: string | number) => {
     setContractDetails(prev => ({ ...prev, [field]: value }));
+  };
+
+  const toggleProductSelection = (productId: string) => {
+    const newSelected = new Set(selectedProductIds);
+    if (newSelected.has(productId)) {
+      newSelected.delete(productId);
+    } else {
+      if (newSelected.size >= 100) { // DTO validation limit
+        alert('Cannot select more than 100 products');
+        return;
+      }
+      newSelected.add(productId);
+    }
+    setSelectedProductIds(newSelected);
   };
 
   const contractTypeOptions = [
@@ -242,7 +304,8 @@ export default function SupplierForm({ onSupplierCreated, onCancel }: CreateSupp
 
   const steps = [
     { key: 'basic', title: 'Basic Info', icon: 'building', color: 'from-emerald-500 to-teal-500' },
-    { key: 'contract', title: 'Contract', icon: 'document-text', color: 'from-blue-500 to-cyan-500' }
+    { key: 'contract', title: 'Contract', icon: 'document-text', color: 'from-blue-500 to-cyan-500' },
+    { key: 'products', title: 'Products', icon: 'cube', color: 'from-purple-500 to-indigo-500' }
   ];
 
   const getCurrentStepIndex = () => steps.findIndex(step => step.key === currentStep);
@@ -262,10 +325,23 @@ export default function SupplierForm({ onSupplierCreated, onCancel }: CreateSupp
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
           </svg>
         );
+      case 'cube':
+        return (
+          <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+          </svg>
+        );
       default:
         return <div className={iconClass}></div>;
     }
   };
+
+  // Filter products for display
+  const filteredProducts = products.filter(product =>
+    product.name.toLowerCase().includes(productSearchTerm.toLowerCase()) ||
+    product.description?.toLowerCase().includes(productSearchTerm.toLowerCase()) ||
+    product.sku?.toLowerCase().includes(productSearchTerm.toLowerCase())
+  );
 
   const renderStep = () => {
     const currentStepData = steps.find(step => step.key === currentStep);
@@ -302,6 +378,9 @@ export default function SupplierForm({ onSupplierCreated, onCancel }: CreateSupp
                     className="mt-3 text-lg border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                     required
                   />
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                    Company name must be between 2 and 100 characters
+                  </p>
                 </div>
 
                 <div>
@@ -313,6 +392,9 @@ export default function SupplierForm({ onSupplierCreated, onCancel }: CreateSupp
                     placeholder="Email, phone, website, and other contact details..."
                     className="mt-3 border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                   />
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                    Maximum 500 characters for contact information
+                  </p>
                 </div>
 
                 <div>
@@ -324,6 +406,9 @@ export default function SupplierForm({ onSupplierCreated, onCancel }: CreateSupp
                     placeholder="Complete business address including city, state, and postal code..."
                     className="mt-3 border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                   />
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                    Maximum 500 characters for address
+                  </p>
                 </div>
 
                 <div>
@@ -370,7 +455,7 @@ export default function SupplierForm({ onSupplierCreated, onCancel }: CreateSupp
               </div>
             </div>
 
-            {/* Contract Type and Terms */}
+            {/* Contract Information */}
             <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-xl border border-gray-100 dark:border-gray-700">
               <h4 className="text-lg font-semibold text-gray-800 dark:text-white mb-6 flex items-center">
                 <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center mr-3">
@@ -389,7 +474,6 @@ export default function SupplierForm({ onSupplierCreated, onCancel }: CreateSupp
                     onChange={(value) => handleContractChange('contractType', value)}
                     value={contractDetails.contractType}
                     className="border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    required
                   />
                 </div>
                 <div>
@@ -411,7 +495,6 @@ export default function SupplierForm({ onSupplierCreated, onCancel }: CreateSupp
                     value={contractDetails.startDate}
                     onChange={(e) => handleContractChange('startDate', e.target.value)}
                     className="border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    required
                   />
                 </div>
                 <div>
@@ -421,114 +504,211 @@ export default function SupplierForm({ onSupplierCreated, onCancel }: CreateSupp
                     value={contractDetails.endDate}
                     onChange={(e) => handleContractChange('endDate', e.target.value)}
                     className="border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    required
+                  />
+                </div>
+                <div>
+                  <Label className="text-gray-700 dark:text-gray-300 font-medium mb-3 block">Payment Terms</Label>
+                  <Select
+                    options={paymentTermsOptions}
+                    placeholder="Select payment terms"
+                    onChange={(value) => handleContractChange('paymentTerms', value)}
+                    value={contractDetails.paymentTerms}
+                    className="border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <Label className="text-gray-700 dark:text-gray-300 font-medium mb-3 block">Delivery Terms</Label>
+                  <Select
+                    options={deliveryTermsOptions}
+                    placeholder="Select delivery terms"
+                    onChange={(value) => handleContractChange('deliveryTerms', value)}
+                    value={contractDetails.deliveryTerms}
+                    className="border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                 </div>
               </div>
-            </div>
 
-            {/* Payment and Delivery Terms */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-xl border border-gray-100 dark:border-gray-700">
-                <h4 className="text-lg font-semibold text-gray-800 dark:text-white mb-6 flex items-center">
-                  <div className="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center mr-3">
-                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
-                    </svg>
+              {/* Contact Person */}
+              <div className="mt-8">
+                <h5 className="text-md font-semibold text-gray-800 dark:text-white mb-4">Primary Contact Person</h5>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <Label className="text-gray-700 dark:text-gray-300 font-medium mb-2 block">Full Name</Label>
+                    <Input
+                      type="text"
+                      value={contractDetails.contactPersonName}
+                      onChange={(e) => handleContractChange('contactPersonName', e.target.value)}
+                      placeholder="Contact person name"
+                      className="border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
                   </div>
-                  Payment Terms
-                </h4>
-                <Select
-                  options={paymentTermsOptions}
-                  placeholder="Select payment terms"
-                  onChange={(value) => handleContractChange('paymentTerms', value)}
-                  value={contractDetails.paymentTerms}
-                  className="border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                  required
-                />
-              </div>
-
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-xl border border-gray-100 dark:border-gray-700">
-                <h4 className="text-lg font-semibold text-gray-800 dark:text-white mb-6 flex items-center">
-                  <div className="w-8 h-8 bg-purple-500 rounded-lg flex items-center justify-center mr-3">
-                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                    </svg>
+                  <div>
+                    <Label className="text-gray-700 dark:text-gray-300 font-medium mb-2 block">Email Address</Label>
+                    <Input
+                      type="email"
+                      value={contractDetails.contactPersonEmail}
+                      onChange={(e) => handleContractChange('contactPersonEmail', e.target.value)}
+                      placeholder="contact@supplier.com"
+                      className="border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
                   </div>
-                  Delivery Terms
-                </h4>
-                <Select
-                  options={deliveryTermsOptions}
-                  placeholder="Select delivery terms"
-                  onChange={(value) => handleContractChange('deliveryTerms', value)}
-                  value={contractDetails.deliveryTerms}
-                  className="border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Contact Person */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-xl border border-gray-100 dark:border-gray-700">
-              <h4 className="text-lg font-semibold text-gray-800 dark:text-white mb-6 flex items-center">
-                <div className="w-8 h-8 bg-indigo-500 rounded-lg flex items-center justify-center mr-3">
-                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
+                  <div>
+                    <Label className="text-gray-700 dark:text-gray-300 font-medium mb-2 block">Phone Number</Label>
+                    <Input
+                      type="tel"
+                      value={contractDetails.contactPersonPhone}
+                      onChange={(e) => handleContractChange('contactPersonPhone', e.target.value)}
+                      placeholder="+1-555-123-4567"
+                      className="border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
                 </div>
-                Primary Contact Person
-              </h4>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              </div>
+
+              {/* Notes */}
+              <div className="mt-6">
+                <Label className="text-gray-700 dark:text-gray-300 font-medium mb-3 block">Additional Notes</Label>
+                <TextArea
+                  rows={3}
+                  value={contractDetails.notes}
+                  onChange={(value) => handleContractChange('notes', value)}
+                  placeholder="Special terms, preferences, quality requirements, or any other important notes..."
+                  className="border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'products':
+        return (
+          <div className="space-y-8">
+            {/* Step Header */}
+            <div className={`bg-gradient-to-r ${currentStepData?.color} rounded-2xl p-6 text-white relative overflow-hidden`}>
+              <div className="absolute top-1/2 right-0 w-28 h-28 bg-white/5 rounded-full -mr-14 animate-float"></div>
+              <div className="relative">
+                <div className="flex items-center space-x-3 mb-2">
+                  <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
+                    {renderStepIcon('cube')}
+                  </div>
+                  <h3 className="text-2xl font-bold">Product Assignment</h3>
+                </div>
+                <p className="text-white/80">Assign products to this supplier ({selectedProductIds.size}/100 selected)</p>
+              </div>
+            </div>
+
+            {/* Product Assignment */}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-xl border border-gray-100 dark:border-gray-700">
+              <div className="flex items-center justify-between mb-6">
                 <div>
-                  <Label className="text-gray-700 dark:text-gray-300 font-medium mb-3 block">Full Name</Label>
+                  <h4 className="text-lg font-semibold text-gray-800 dark:text-white">Available Products</h4>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Select up to 100 products to assign to this supplier
+                  </p>
+                </div>
+                {loadingProducts && (
+                  <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-purple-500"></div>
+                )}
+              </div>
+
+              {/* Product Search */}
+              <div className="mb-6">
+                <div className="relative">
+                  <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
                   <Input
                     type="text"
-                    value={contractDetails.contactPersonName}
-                    onChange={(e) => handleContractChange('contactPersonName', e.target.value)}
-                    placeholder="Contact person name"
-                    className="border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                  />
-                </div>
-                <div>
-                  <Label className="text-gray-700 dark:text-gray-300 font-medium mb-3 block">Email Address</Label>
-                  <Input
-                    type="email"
-                    value={contractDetails.contactPersonEmail}
-                    onChange={(e) => handleContractChange('contactPersonEmail', e.target.value)}
-                    placeholder="contact@supplier.com"
-                    className="border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                  />
-                </div>
-                <div>
-                  <Label className="text-gray-700 dark:text-gray-300 font-medium mb-3 block">Phone Number</Label>
-                  <Input
-                    type="tel"
-                    value={contractDetails.contactPersonPhone}
-                    onChange={(e) => handleContractChange('contactPersonPhone', e.target.value)}
-                    placeholder="+1-555-123-4567"
-                    className="border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    value={productSearchTerm}
+                    onChange={(e) => setProductSearchTerm(e.target.value)}
+                    placeholder="Search products by name, description, or SKU..."
+                    className="pl-10 border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
                   />
                 </div>
               </div>
-            </div>
 
-            {/* Additional Notes */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-xl border border-gray-100 dark:border-gray-700">
-              <h4 className="text-lg font-semibold text-gray-800 dark:text-white mb-6 flex items-center">
-                <div className="w-8 h-8 bg-amber-500 rounded-lg flex items-center justify-center mr-3">
-                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                  </svg>
+              {/* Products List */}
+              <div className="max-h-96 overflow-y-auto custom-scrollbar space-y-3">
+                {loadingProducts ? (
+                  <div className="text-center py-12">
+                    <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-purple-500 mx-auto mb-2"></div>
+                    <p className="text-gray-600 dark:text-gray-400">Loading products...</p>
+                  </div>
+                ) : filteredProducts.length === 0 ? (
+                  <div className="text-center py-12 text-gray-600 dark:text-gray-400">
+                    {productSearchTerm ? 'No products match your search criteria' : 'No products available'}
+                  </div>
+                ) : (
+                  filteredProducts.map((product) => (
+                    <div
+                      key={product.id}
+                      className={`flex items-center justify-between p-4 border border-gray-200 dark:border-gray-600 rounded-xl cursor-pointer transition-all duration-200 ${
+                        selectedProductIds.has(product.id)
+                          ? 'bg-purple-50 dark:bg-purple-900/20 border-purple-300 dark:border-purple-600'
+                          : 'hover:bg-gray-50 dark:hover:bg-gray-700'
+                      }`}
+                      onClick={() => toggleProductSelection(product.id)}
+                    >
+                      <div className="flex items-center space-x-4">
+                        <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center ${
+                          selectedProductIds.has(product.id)
+                            ? 'bg-purple-500 border-purple-500'
+                            : 'border-gray-300 dark:border-gray-600'
+                        }`}>
+                          {selectedProductIds.has(product.id) && (
+                            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" />
+                            </svg>
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-4">
+                            <div>
+                              <p className="font-semibold text-gray-800 dark:text-white">{product.name}</p>
+                              {product.description && (
+                                <p className="text-sm text-gray-600 dark:text-gray-400 truncate max-w-md">{product.description}</p>
+                              )}
+                              <div className="flex items-center space-x-4 text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                <span className="font-medium">${product.price}</span>
+                                {product.sku && <span>SKU: {product.sku}</span>}
+                                {product.categoryName && <span>Category: {product.categoryName}</span>}
+                                {product.stock !== undefined && <span>Stock: {product.stock}</span>}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      {product.supplierId && product.supplierId !== 'current' && (
+                        <div className="text-xs text-orange-500 font-medium">
+                          Currently assigned to: {product.supplierName || 'Another supplier'}
+                        </div>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* Selection Summary */}
+              {selectedProductIds.size > 0 && (
+                <div className="mt-6 p-4 bg-purple-50 dark:bg-purple-900/20 rounded-xl border border-purple-200 dark:border-purple-800">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-semibold text-purple-800 dark:text-purple-200">
+                        {selectedProductIds.size} products selected
+                      </p>
+                      <p className="text-sm text-purple-600 dark:text-purple-400">
+                        {100 - selectedProductIds.size} more products can be added
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setSelectedProductIds(new Set())}
+                      className="text-sm text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-200 font-medium"
+                    >
+                      Clear All
+                    </button>
+                  </div>
                 </div>
-                Additional Notes
-              </h4>
-              <TextArea
-                rows={4}
-                value={contractDetails.notes}
-                onChange={(value) => handleContractChange('notes', value)}
-                placeholder="Special terms, preferences, quality requirements, or any other important notes..."
-                className="border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
-              />
+              )}
             </div>
           </div>
         );
@@ -543,7 +723,7 @@ export default function SupplierForm({ onSupplierCreated, onCancel }: CreateSupp
       name: '',
       contactInfo: '',
       address: '',
-      rating: 0
+      rating: 0.0
     });
     setContractDetails({
       contractType: '',
@@ -557,11 +737,12 @@ export default function SupplierForm({ onSupplierCreated, onCancel }: CreateSupp
       contactPersonPhone: '',
       notes: ''
     });
+    setSelectedProductIds(new Set());
     setCurrentStep('basic');
   };
 
   const handleSubmit = async () => {
-    if (currentStep !== 'contract') {
+    if (currentStep !== 'products') {
       console.log('Not on final step, preventing submission');
       return;
     }
@@ -585,18 +766,8 @@ export default function SupplierForm({ onSupplierCreated, onCancel }: CreateSupp
         contactInfo: formData.contactInfo,
         address: formData.address,
         rating: formData.rating,
-        contractDetails: {
-          contractType: contractDetails.contractType,
-          startDate: contractDetails.startDate,
-          endDate: contractDetails.endDate,
-          contractValue: contractDetails.contractValue,
-          paymentTerms: contractDetails.paymentTerms,
-          deliveryTerms: contractDetails.deliveryTerms,
-          contactPersonName: contractDetails.contactPersonName,
-          contactPersonEmail: contractDetails.contactPersonEmail,
-          contactPersonPhone: contractDetails.contactPersonPhone,
-          notes: contractDetails.notes
-        }
+        contractDetails: contractDetails, // Already a Map<String, Object>
+        productIds: Array.from(selectedProductIds) // Convert Set to List<UUID>
       };
 
       const response = await fetch(`${Product_Service_URL}/suppliers`, {
@@ -638,27 +809,34 @@ export default function SupplierForm({ onSupplierCreated, onCancel }: CreateSupp
   const handleNextStep = () => {
     if (currentStep === 'basic' && isStepValid()) {
       setCurrentStep('contract');
+    } else if (currentStep === 'contract' && isStepValid()) {
+      setCurrentStep('products');
     }
   };
 
   const handlePreviousStep = () => {
     if (currentStep === 'contract') setCurrentStep('basic');
+    else if (currentStep === 'products') setCurrentStep('contract');
   };
 
   const isStepValid = () => {
     switch (currentStep) {
       case 'basic':
-        return formData.name && formData.contactInfo && formData.address;
+        return formData.name.length >= 2 && formData.name.length <= 100 && 
+               formData.contactInfo.length > 0 && formData.contactInfo.length <= 500 &&
+               formData.address.length > 0 && formData.address.length <= 500 &&
+               formData.rating >= 0 && formData.rating <= 5;
       case 'contract':
-        return contractDetails.contractType && contractDetails.startDate && contractDetails.endDate && 
-               contractDetails.paymentTerms && contractDetails.deliveryTerms && !isSubmitting;
+        return true; // Contract details are optional
+      case 'products':
+        return !isSubmitting; // Products are optional, just need to not be submitting
       default:
         return false;
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-emerald-50 to-blue-50 dark:from-gray-900 dark:via-emerald-900 dark:to-blue-900">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-emerald-50 to-purple-50 dark:from-gray-900 dark:via-emerald-900 dark:to-purple-900">
       <div className="max-w-12xl mx-auto p-6">
         <div className="floating-card rounded-3xl overflow-hidden backdrop-blur-xl">
           {/* Header Section */}
@@ -673,7 +851,7 @@ export default function SupplierForm({ onSupplierCreated, onCancel }: CreateSupp
                 </svg>
               </div>
               <h1 className="text-4xl font-bold mb-3">Add New Supplier</h1>
-              <p className="text-xl text-white/80">Onboard suppliers with comprehensive contract details</p>
+              <p className="text-xl text-white/80">Onboard suppliers with comprehensive details and product assignments</p>
             </div>
             {onCancel && (
               <button
@@ -689,7 +867,7 @@ export default function SupplierForm({ onSupplierCreated, onCancel }: CreateSupp
 
           {/* Progress Indicator */}
           <div className="bg-white dark:bg-gray-800 px-8 py-6 border-b border-gray-200 dark:border-gray-700">
-            <div className="flex items-center justify-between max-w-2xl mx-auto">
+            <div className="flex items-center justify-between max-w-3xl mx-auto">
               {steps.map((step, index) => {
                 const isActive = currentStep === step.key;
                 const isCompleted = index < getCurrentStepIndex();
@@ -722,7 +900,7 @@ export default function SupplierForm({ onSupplierCreated, onCancel }: CreateSupp
                           renderStepIcon(step.icon)
                         )}
                         {isActive && (
-                          <div className="absolute -inset-1 bg-gradient-to-r from-emerald-500 to-blue-600 rounded-2xl opacity-30 animate-pulse"></div>
+                          <div className="absolute -inset-1 bg-gradient-to-r from-emerald-500 to-purple-600 rounded-2xl opacity-30 animate-pulse"></div>
                         )}
                       </button>
                       <span className={`mt-3 text-sm font-medium transition-colors duration-300 text-center ${
@@ -739,7 +917,7 @@ export default function SupplierForm({ onSupplierCreated, onCancel }: CreateSupp
                     {index < steps.length - 1 && (
                       <div className={`h-1 flex-1 mx-4 rounded-full transition-all duration-300 ${
                         index < getCurrentStepIndex()
-                          ? 'bg-gradient-to-r from-emerald-500 to-blue-500'
+                          ? 'bg-gradient-to-r from-emerald-500 to-purple-500'
                           : 'bg-gradient-to-r from-gray-300 to-gray-400 dark:from-gray-600 dark:to-gray-700'
                       }`}></div>
                     )}
@@ -759,10 +937,10 @@ export default function SupplierForm({ onSupplierCreated, onCancel }: CreateSupp
               {/* Navigation */}
               <div className="flex justify-between items-center pt-8 mt-8 border-t border-gray-200 dark:border-gray-700">
                 <div className="text-sm text-gray-500 dark:text-gray-400">
-                  {currentStep === 'contract' && (
+                  {currentStep === 'products' && (
                     <span className="flex items-center space-x-2">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                      <span>Review contract details before submission</span>
+                      <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse"></div>
+                      <span>Review all details before submission</span>
                     </span>
                   )}
                 </div>
@@ -782,11 +960,11 @@ export default function SupplierForm({ onSupplierCreated, onCancel }: CreateSupp
                     </svg>
                     <span>Back</span>
                   </button>
-                  {currentStep === 'contract' ? (
+                  {currentStep === 'products' ? (
                     <button
                       type="button"
                       onClick={handleSubmit}
-                      className={`px-8 py-3 bg-gradient-to-r from-emerald-500 to-blue-600 hover:from-emerald-600 hover:to-blue-700 text-white rounded-xl font-bold transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-xl hover:shadow-2xl flex items-center space-x-2 ${
+                      className={`px-8 py-3 bg-gradient-to-r from-emerald-500 to-purple-600 hover:from-emerald-600 hover:to-purple-700 text-white rounded-xl font-bold transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-xl hover:shadow-2xl flex items-center space-x-2 ${
                         !isStepValid() || isSubmitting ? 'opacity-50 cursor-not-allowed' : ''
                       }`}
                       disabled={!isStepValid() || isSubmitting}
@@ -808,7 +986,7 @@ export default function SupplierForm({ onSupplierCreated, onCancel }: CreateSupp
                   ) : (
                     <button
                       type="button"
-                      className={`px-8 py-3 bg-gradient-to-r from-emerald-500 to-blue-600 hover:from-emerald-600 hover:to-blue-700 text-white rounded-xl font-medium transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl flex items-center space-x-2 ${
+                      className={`px-8 py-3 bg-gradient-to-r from-emerald-500 to-purple-600 hover:from-emerald-600 hover:to-purple-700 text-white rounded-xl font-medium transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl flex items-center space-x-2 ${
                         !isStepValid() ? 'opacity-50 cursor-not-allowed' : ''
                       }`}
                       onClick={handleNextStep}
@@ -834,7 +1012,7 @@ export default function SupplierForm({ onSupplierCreated, onCancel }: CreateSupp
             {/* Preview Header */}
             <div className="supplier-gradient text-white p-8 text-center">
               <h3 className="text-3xl font-bold mb-2">Supplier Preview</h3>
-              <p className="text-white/80">Review supplier details before submission</p>
+              <p className="text-white/80">Review all details before creating the supplier</p>
             </div>
             
             {/* Preview Content */}
@@ -870,58 +1048,69 @@ export default function SupplierForm({ onSupplierCreated, onCancel }: CreateSupp
               </div>
 
               {/* Contract Details */}
-              <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 rounded-2xl p-6 border border-blue-200 dark:border-blue-800">
-                <h4 className="text-xl font-semibold text-blue-800 dark:text-blue-200 mb-4 flex items-center">
-                  <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center mr-3">
-                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                  </div>
-                  Contract Details
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <span className="font-semibold text-blue-700 dark:text-blue-300">Contract Type:</span>
-                    <p className="text-blue-800 dark:text-blue-200 mt-1">{contractDetails.contractType}</p>
-                  </div>
-                  <div>
-                    <span className="font-semibold text-blue-700 dark:text-blue-300">Contract Value:</span>
-                    <p className="text-blue-800 dark:text-blue-200 mt-1">${contractDetails.contractValue}</p>
-                  </div>
-                  <div>
-                    <span className="font-semibold text-blue-700 dark:text-blue-300">Start Date:</span>
-                    <p className="text-blue-800 dark:text-blue-200 mt-1">{new Date(contractDetails.startDate).toLocaleString()}</p>
-                  </div>
-                  <div>
-                    <span className="font-semibold text-blue-700 dark:text-blue-300">End Date:</span>
-                    <p className="text-blue-800 dark:text-blue-200 mt-1">{new Date(contractDetails.endDate).toLocaleString()}</p>
-                  </div>
-                  <div>
-                    <span className="font-semibold text-blue-700 dark:text-blue-300">Payment Terms:</span>
-                    <p className="text-blue-800 dark:text-blue-200 mt-1">{contractDetails.paymentTerms}</p>
-                  </div>
-                  <div>
-                    <span className="font-semibold text-blue-700 dark:text-blue-300">Delivery Terms:</span>
-                    <p className="text-blue-800 dark:text-blue-200 mt-1">{contractDetails.deliveryTerms}</p>
-                  </div>
-                  {contractDetails.contactPersonName && (
-                    <div className="md:col-span-2">
-                      <span className="font-semibold text-blue-700 dark:text-blue-300">Contact Person:</span>
-                      <p className="text-blue-800 dark:text-blue-200 mt-1">
-                        {contractDetails.contactPersonName}
-                        {contractDetails.contactPersonEmail && ` (${contractDetails.contactPersonEmail})`}
-                        {contractDetails.contactPersonPhone && ` - ${contractDetails.contactPersonPhone}`}
-                      </p>
+              {Object.values(contractDetails).some(value => value) && (
+                <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 rounded-2xl p-6 border border-blue-200 dark:border-blue-800">
+                  <h4 className="text-xl font-semibold text-blue-800 dark:text-blue-200 mb-4 flex items-center">
+                    <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center mr-3">
+                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
                     </div>
-                  )}
-                  {contractDetails.notes && (
-                    <div className="md:col-span-2">
-                      <span className="font-semibold text-blue-700 dark:text-blue-300">Notes:</span>
-                      <p className="text-blue-800 dark:text-blue-200 mt-1 leading-relaxed">{contractDetails.notes}</p>
-                    </div>
-                  )}
+                    Contract Details
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {contractDetails.contractType && (
+                      <div>
+                        <span className="font-semibold text-blue-700 dark:text-blue-300">Contract Type:</span>
+                        <p className="text-blue-800 dark:text-blue-200 mt-1">{contractDetails.contractType}</p>
+                      </div>
+                    )}
+                    {contractDetails.contractValue > 0 && (
+                      <div>
+                        <span className="font-semibold text-blue-700 dark:text-blue-300">Contract Value:</span>
+                        <p className="text-blue-800 dark:text-blue-200 mt-1">${contractDetails.contractValue}</p>
+                      </div>
+                    )}
+                    {contractDetails.paymentTerms && (
+                      <div>
+                        <span className="font-semibold text-blue-700 dark:text-blue-300">Payment Terms:</span>
+                        <p className="text-blue-800 dark:text-blue-200 mt-1">{contractDetails.paymentTerms}</p>
+                      </div>
+                    )}
+                    {contractDetails.deliveryTerms && (
+                      <div>
+                        <span className="font-semibold text-blue-700 dark:text-blue-300">Delivery Terms:</span>
+                        <p className="text-blue-800 dark:text-blue-200 mt-1">{contractDetails.deliveryTerms}</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {/* Selected Products */}
+              {selectedProductIds.size > 0 && (
+                <div className="bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 rounded-2xl p-6 border border-purple-200 dark:border-purple-800">
+                  <h4 className="text-xl font-semibold text-purple-800 dark:text-purple-200 mb-4 flex items-center">
+                    <div className="w-8 h-8 bg-purple-500 rounded-lg flex items-center justify-center mr-3">
+                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                      </svg>
+                    </div>
+                    Selected Products ({selectedProductIds.size})
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-40 overflow-y-auto custom-scrollbar">
+                    {Array.from(selectedProductIds).map(productId => {
+                      const product = products.find(p => p.id === productId);
+                      return product ? (
+                        <div key={productId} className="bg-white dark:bg-gray-700 rounded-lg p-3 border border-purple-200 dark:border-purple-700">
+                          <p className="font-medium text-purple-800 dark:text-purple-200 text-sm">{product.name}</p>
+                          <p className="text-xs text-purple-600 dark:text-purple-400">${product.price}</p>
+                        </div>
+                      ) : null;
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Preview Footer */}
@@ -937,7 +1126,7 @@ export default function SupplierForm({ onSupplierCreated, onCancel }: CreateSupp
                 type="button"
                 onClick={handleSubmit}
                 disabled={isSubmitting}
-                className={`px-8 py-3 bg-gradient-to-r from-emerald-500 to-blue-600 hover:from-emerald-600 hover:to-blue-700 text-white rounded-xl font-bold transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl ${
+                className={`px-8 py-3 bg-gradient-to-r from-emerald-500 to-purple-600 hover:from-emerald-600 hover:to-purple-700 text-white rounded-xl font-bold transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl ${
                   isSubmitting ? 'opacity-50 cursor-not-allowed' : ''
                 }`}
               >
@@ -947,7 +1136,7 @@ export default function SupplierForm({ onSupplierCreated, onCancel }: CreateSupp
                     <span>Creating Supplier...</span>
                   </div>
                 ) : (
-                  'Confirm & Submit Supplier'
+                  'Confirm & Create Supplier'
                 )}
               </button>
             </div>
@@ -967,7 +1156,7 @@ export default function SupplierForm({ onSupplierCreated, onCancel }: CreateSupp
               </div>
               <div>
                 <p className="text-xl font-bold">Supplier Created Successfully!</p>
-                <p className="text-emerald-100">Your supplier is now available in the system</p>
+                <p className="text-emerald-100">Your supplier and product assignments are now in the system</p>
               </div>
             </div>
           </div>

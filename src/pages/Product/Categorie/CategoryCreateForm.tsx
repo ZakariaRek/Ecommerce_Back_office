@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Product_Service_URL } from "../../../lib/apiEndPoints";
 
 interface CreateCategoryProps {
@@ -165,6 +165,7 @@ export default function CategoryCreateForm({ onCategoryCreated, onCancel, parent
   const [showSuccess, setShowSuccess] = useState(false);
   const [categories, setCategories] = useState<any[]>(propCategories);
   const [loadingCategories, setLoadingCategories] = useState(false);
+  const [categoriesFetched, setCategoriesFetched] = useState(false);
 
   // Form data
   const [formData, setFormData] = useState({
@@ -188,14 +189,15 @@ export default function CategoryCreateForm({ onCategoryCreated, onCancel, parent
     };
   }, []);
 
-  useEffect(() => {
-    // Fetch categories if not provided as props
-    if (propCategories.length === 0) {
-      fetchCategories();
-    }
-  }, [propCategories]);
+  // Memoize whether we need to fetch categories
+  const needsToFetchCategories = useMemo(() => {
+    return propCategories.length === 0 && !categoriesFetched && !loadingCategories;
+  }, [propCategories.length, categoriesFetched, loadingCategories]);
 
-  const fetchCategories = async () => {
+  // Single fetch function with proper error handling
+  const fetchCategories = useCallback(async () => {
+    if (loadingCategories || categoriesFetched) return;
+    
     try {
       setLoadingCategories(true);
       const token = getAuthToken();
@@ -209,6 +211,7 @@ export default function CategoryCreateForm({ onCategoryCreated, onCancel, parent
       if (response.ok) {
         const data = await response.json();
         setCategories(data);
+        setCategoriesFetched(true);
       } else {
         console.error('Failed to fetch categories');
       }
@@ -217,7 +220,22 @@ export default function CategoryCreateForm({ onCategoryCreated, onCancel, parent
     } finally {
       setLoadingCategories(false);
     }
-  };
+  }, [loadingCategories, categoriesFetched]);
+
+  // Effect to fetch categories only when needed
+  useEffect(() => {
+    if (needsToFetchCategories) {
+      fetchCategories();
+    }
+  }, [needsToFetchCategories, fetchCategories]);
+
+  // Effect to update categories when props change
+  useEffect(() => {
+    if (propCategories.length > 0) {
+      setCategories(propCategories);
+      setCategoriesFetched(true);
+    }
+  }, [propCategories]);
 
   // Update level when parent changes
   useEffect(() => {
@@ -244,7 +262,7 @@ export default function CategoryCreateForm({ onCategoryCreated, onCancel, parent
   };
 
   // Build full path for a category
-  const buildCategoryPath = (categoryId: string): string => {
+  const buildCategoryPath = useCallback((categoryId: string): string => {
     const buildPath = (id: string): string[] => {
       const category = categories.find(cat => cat.id === id);
       if (!category) return ['Unknown'];
@@ -256,30 +274,32 @@ export default function CategoryCreateForm({ onCategoryCreated, onCancel, parent
     };
     
     return buildPath(categoryId).join(' > ');
-  };
+  }, [categories]);
 
-  // Create parent options with hierarchy and details
-  const parentOptions = getValidParentCategories()
-    .sort((a, b) => {
-      // Sort by level first, then by name
-      if (a.level !== b.level) {
-        return a.level - b.level;
-      }
-      return a.name.localeCompare(b.name);
-    })
-    .map(cat => {
-      const path = buildCategoryPath(cat.id);
-      const indent = '  '.repeat(cat.level || 0);
-      const productInfo = cat.productCount > 0 ? ` (${cat.productCount} products)` : '';
-      const subcategoryInfo = cat.subcategoryCount > 0 ? ` [${cat.subcategoryCount} subcategories]` : '';
-      
-      return {
-        value: cat.id,
-        label: `${indent}${cat.name} - Level ${cat.level}${productInfo}${subcategoryInfo}`,
-        category: cat,
-        path: path
-      };
-    });
+  // Create parent options with hierarchy and details - memoized
+  const parentOptions = useMemo(() => {
+    return getValidParentCategories()
+      .sort((a, b) => {
+        // Sort by level first, then by name
+        if (a.level !== b.level) {
+          return a.level - b.level;
+        }
+        return a.name.localeCompare(b.name);
+      })
+      .map(cat => {
+        const path = buildCategoryPath(cat.id);
+        const indent = '  '.repeat(cat.level || 0);
+        const productInfo = cat.productCount > 0 ? ` (${cat.productCount} products)` : '';
+        const subcategoryInfo = cat.subcategoryCount > 0 ? ` [${cat.subcategoryCount} subcategories]` : '';
+        
+        return {
+          value: cat.id,
+          label: `${indent}${cat.name} - Level ${cat.level}${productInfo}${subcategoryInfo}`,
+          category: cat,
+          path: path
+        };
+      });
+  }, [categories, buildCategoryPath]);
 
   const resetForm = () => {
     setFormData({
@@ -354,7 +374,7 @@ export default function CategoryCreateForm({ onCategoryCreated, onCancel, parent
     return formData.name.trim().length >= 2;
   };
 
-  const getBreadcrumbPath = () => {
+  const getBreadcrumbPath = useCallback(() => {
     if (!formData.parentId) return ['Root'];
     
     const buildPath = (categoryId: string): string[] => {
@@ -368,7 +388,7 @@ export default function CategoryCreateForm({ onCategoryCreated, onCancel, parent
     };
     
     return [...buildPath(formData.parentId), formData.name || 'New Category'];
-  };
+  }, [formData.parentId, formData.name, categories]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-indigo-50 dark:from-gray-900 dark:via-purple-900 dark:to-indigo-900">
