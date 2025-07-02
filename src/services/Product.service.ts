@@ -162,6 +162,50 @@ export class ProductService {
       throw error;
     }
   }
+  static async getProductNOOptions(): Promise<ProductOption[]> {
+    try {
+      const products = await this.getNoInventory();
+      console.log('Products from getNoInventory:', products);
+      
+      // Option 1: Remove status filter entirely (include all products regardless of status)
+      return products.map(product => ({
+        value: product.id,
+        label: `${product.name} (${product.sku})`,
+        sku: product.sku,
+        price: product.price,
+        stock: product.stock,
+        status: product.status
+      }));
+      
+      // Option 2: If you want to include both ACTIVE and INACTIVE products
+      // return products
+      //   .filter(product => product.status === ProductStatus.ACTIVE || product.status === ProductStatus.INACTIVE)
+      //   .map(product => ({
+      //     value: product.id,
+      //     label: `${product.name} (${product.sku})`,
+      //     sku: product.sku,
+      //     price: product.price,
+      //     stock: product.stock,
+      //     status: product.status
+      //   }));
+      
+      // Option 3: If you want to exclude only DISCONTINUED products
+      // return products
+      //   .filter(product => product.status !== ProductStatus.DISCONTINUED)
+      //   .map(product => ({
+      //     value: product.id,
+      //     label: `${product.name} (${product.sku})`,
+      //     sku: product.sku,
+      //     price: product.price,
+      //     stock: product.stock,
+      //     status: product.status
+      //   }));
+    } catch (error) {
+      console.error('Error fetching product options:', error);
+      throw error;
+    }
+  }
+  
   
   // Get all products
   static async getAllProducts(): Promise<ProductResponseDTO[]> {
@@ -177,6 +221,22 @@ export class ProductService {
       }
 
       return await response.json();
+    } catch (error) {
+      console.error('Error fetching products:', error);
+      throw error;
+    }
+  }
+  static async getNoInventory(): Promise<ProductResponseDTO[]> {
+    try {
+      const response = await fetch(`http://localhost:8099/api/products/products/no-inventory`, {
+        method: 'GET',
+        headers: getRequestHeaders(),
+        credentials: 'include',
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to fetch products: ${response.status} ${response.statusText}`);
+      }
+       return await response.json();
     } catch (error) {
       console.error('Error fetching products:', error);
       throw error;

@@ -189,15 +189,15 @@ export const InventoryProvider: React.FC<InventoryProviderProps> = ({ children }
   };
 
   // Adjust stock
-  const adjustStock = async (id: string, adjustment: number) => {
-    try {
-      await InventoryService.adjustStock(id, adjustment);
-      await fetchInventory();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to adjust stock');
-      throw err;
-    }
-  };
+  // const adjustStock = async (id: string, adjustment: number) => {
+  //   try {
+  //     await InventoryService.adjustStock(id, adjustment);
+  //     await fetchInventory();
+  //   } catch (err) {
+  //     setError(err instanceof Error ? err.message : 'Failed to adjust stock');
+  //     throw err;
+  //   }
+  // };
 
   // Select all visible items
   const selectAll = () => {
@@ -272,7 +272,7 @@ export const InventoryProvider: React.FC<InventoryProviderProps> = ({ children }
     updateInventory,
     deleteInventory,
     bulkDelete,
-    adjustStock,
+    // adjustStock,
     selectAll,
     clearSelection,
     exportToCSV,

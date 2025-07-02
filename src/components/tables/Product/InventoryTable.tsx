@@ -1,7 +1,7 @@
 // src/components/InventoryTable.tsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { InventoryService, Inventory } from '../../../services/inventory.service';
+import { InventoryService, Inventory, InventoryError } from '../../../services/inventory.service';
 
 // Stats Component
 const InventoryStats: React.FC<{ inventory: Inventory[] }> = ({ inventory }) => {
@@ -50,28 +50,88 @@ const InventoryStats: React.FC<{ inventory: Inventory[] }> = ({ inventory }) => 
   );
 };
 
-// Success Message Component
-const SuccessMessage: React.FC<{ message: string; onClose: () => void }> = ({ message, onClose }) => {
+// Message Component for both success and error messages
+const MessageAlert: React.FC<{ 
+  message: string; 
+  type: 'success' | 'error' | 'warning'; 
+  onClose: () => void 
+}> = ({ message, type, onClose }) => {
   useEffect(() => {
     const timer = setTimeout(onClose, 5000);
     return () => clearTimeout(timer);
   }, [onClose]);
 
-  return (
-    <div className="mb-6 p-4 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-lg">
-      <div className="flex">
-        <div className="flex-shrink-0">
-          <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+  const getTypeStyles = () => {
+    switch (type) {
+      case 'success':
+        return {
+          container: 'bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-800',
+          text: 'text-green-800 dark:text-green-200',
+          icon: 'text-green-400'
+        };
+      case 'error':
+        return {
+          container: 'bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-800',
+          text: 'text-red-800 dark:text-red-200',
+          icon: 'text-red-400'
+        };
+      case 'warning':
+        return {
+          container: 'bg-yellow-50 dark:bg-yellow-900/30 border-yellow-200 dark:border-yellow-800',
+          text: 'text-yellow-800 dark:text-yellow-200',
+          icon: 'text-yellow-400'
+        };
+      default:
+        return {
+          container: 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800',
+          text: 'text-blue-800 dark:text-blue-200',
+          icon: 'text-blue-400'
+        };
+    }
+  };
+
+  const styles = getTypeStyles();
+
+  const getIcon = () => {
+    switch (type) {
+      case 'success':
+        return (
+          <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
             <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
           </svg>
+        );
+      case 'error':
+        return (
+          <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+          </svg>
+        );
+      case 'warning':
+        return (
+          <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+          </svg>
+        );
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className={`mb-6 p-4 border rounded-lg ${styles.container}`}>
+      <div className="flex">
+        <div className="flex-shrink-0">
+          <div className={styles.icon}>
+            {getIcon()}
+          </div>
         </div>
         <div className="ml-3 flex-1">
-          <p className="text-sm text-green-800 dark:text-green-200">{message}</p>
+          <p className={`text-sm ${styles.text}`}>{message}</p>
         </div>
         <div className="ml-auto pl-3">
           <button
             onClick={onClose}
-            className="text-green-400 hover:text-green-600 dark:hover:text-green-300"
+            className={`${styles.icon} hover:opacity-75`}
           >
             <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
@@ -185,142 +245,16 @@ const InventoryFilters: React.FC<{
   );
 };
 
-// Stock Adjustment Modal
-const StockAdjustModal: React.FC<{
+// Delete Confirmation Modal - Hidden as requested
+const DeleteConfirmationModal: React.FC<{
   item: Inventory | null;
   show: boolean;
   onClose: () => void;
-  onAdjust: (id: string, adjustment: number, reason?: string) => Promise<void>;
-}> = ({ item, show, onClose, onAdjust }) => {
-  const [adjustment, setAdjustment] = useState(0);
-  const [type, setType] = useState<'add' | 'subtract'>('add');
-  const [reason, setReason] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!item) return;
-
-    setLoading(true);
-    try {
-      const finalAdjustment = type === 'add' ? adjustment : -adjustment;
-      await onAdjust(item.id, finalAdjustment, reason);
-      onClose();
-      setAdjustment(0);
-      setReason('');
-    } catch (error) {
-      console.error('Failed to adjust stock:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (!show || !item) return null;
-
-  const newQuantity = type === 'add' ? item.quantity + adjustment : item.quantity - adjustment;
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Adjust Stock</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
-            ✕
-          </button>
-        </div>
-
-        <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-          <p className="font-medium text-gray-900 dark:text-white">{item.productName}</p>
-          <p className="text-sm text-gray-500 dark:text-gray-400">Current: {item.quantity} units</p>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Type</label>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setType('add')}
-                className={`flex-1 px-3 py-2 rounded-lg border transition-colors ${
-                  type === 'add' ? 'bg-green-100 border-green-500 text-green-700' : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                ➕ Add Stock
-              </button>
-              <button
-                type="button"
-                onClick={() => setType('subtract')}
-                className={`flex-1 px-3 py-2 rounded-lg border transition-colors ${
-                  type === 'subtract' ? 'bg-red-100 border-red-500 text-red-700' : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                ➖ Remove Stock
-              </button>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Amount</label>
-            <input
-              type="number"
-              required
-              min="1"
-              max={type === 'subtract' ? item.quantity : undefined}
-              value={adjustment}
-              onChange={(e) => setAdjustment(parseInt(e.target.value) || 0)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Reason (Optional)</label>
-            <select
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-            >
-              <option value="">Select a reason...</option>
-              <option value="restock">Restock</option>
-              <option value="sold">Sold</option>
-              <option value="damaged">Damaged/Lost</option>
-              <option value="returned">Customer Return</option>
-              <option value="transfer">Warehouse Transfer</option>
-              <option value="audit">Inventory Audit</option>
-              <option value="other">Other</option>
-            </select>
-          </div>
-
-          <div className={`p-3 rounded-lg ${
-            newQuantity < 0 ? 'bg-red-50 text-red-700' : 
-            newQuantity <= item.lowStockThreshold ? 'bg-yellow-50 text-yellow-700' : 'bg-blue-50 text-blue-700'
-          }`}>
-            <p className="text-sm">New quantity: {Math.max(0, newQuantity)} units</p>
-            {newQuantity < 0 && <p className="text-xs mt-1">Cannot be negative!</p>}
-            {newQuantity <= item.lowStockThreshold && newQuantity >= 0 && (
-              <p className="text-xs mt-1">Will be below threshold</p>
-            )}
-          </div>
-
-          <div className="flex gap-3 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={loading || newQuantity < 0}
-              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-            >
-              {loading ? 'Adjusting...' : 'Apply'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
+  onConfirm: () => void;
+  loading: boolean;
+}> = ({ item, show, onClose, onConfirm, loading }) => {
+  // Modal is hidden as requested
+  return null;
 };
 
 // Main Table Component
@@ -332,32 +266,81 @@ const MainInventoryTable: React.FC<{
   selectedItems: Set<string>;
   onSelectItem: (id: string) => void;
   onSelectAll: () => void;
-}> = ({ inventory, loading, error, onRefresh, selectedItems, onSelectItem, onSelectAll }) => {
+  onDeleteSuccess: (message: string) => void;
+  onDeleteError: (message: string, type?: 'error' | 'warning') => void;
+  isDeleteMode: boolean;
+  onSetDeleteMode: (mode: boolean) => void;
+}> = ({ 
+  inventory, 
+  loading, 
+  error, 
+  onRefresh, 
+  selectedItems, 
+  onSelectItem, 
+  onSelectAll,
+  onDeleteSuccess,
+  onDeleteError,
+  isDeleteMode,
+  onSetDeleteMode
+}) => {
   const navigate = useNavigate();
-  const [adjustingItem, setAdjustingItem] = useState<Inventory | null>(null);
+  const [deletingItem, setDeletingItem] = useState<Inventory | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const handleEdit = (item: Inventory) => {
     navigate(`/inventory/edit/${item.id}`);
   };
 
-  const handleDelete = async (id: string) => {
-    if (confirm('Are you sure you want to delete this inventory item?')) {
-      try {
-        await InventoryService.deleteInventory(id);
-        onRefresh();
-      } catch (error) {
-        console.error('Failed to delete inventory:', error);
-      }
+  const handleDeleteClick = async (item: Inventory) => {
+    // Check if item has stock
+    if (item.quantity > 0) {
+      onDeleteError(
+        `Cannot delete ${item.productName}: This inventory item has ${item.quantity} units remaining. You must transfer or reduce the stock to zero before deletion.`,
+        'warning'
+      );
+      return;
     }
-  };
 
-  const handleStockAdjust = async (id: string, adjustment: number, reason?: string) => {
+    // Set delete mode and blur other components
+    onSetDeleteMode(true);
+    setDeletingItem(item);
+    setDeleteLoading(true);
+
     try {
-      await InventoryService.adjustStock(id, adjustment, reason);
+      await InventoryService.deleteInventory(item.id);
+      onDeleteSuccess(`Successfully deleted ${item.productName}`);
       onRefresh();
     } catch (error) {
-      console.error('Failed to adjust stock:', error);
-      throw error;
+      if (error instanceof InventoryError) {
+        switch (error.type) {
+          case 'CONFLICT':
+            onDeleteError(
+              `Cannot delete ${item.productName}: ${error.message}`,
+              'warning'
+            );
+            break;
+          case 'NOT_FOUND':
+            onDeleteError(
+              `${item.productName} was not found. It may have been already deleted.`,
+              'warning'
+            );
+            break;
+          default:
+            onDeleteError(
+              `Failed to delete ${item.productName}: ${error.message}`,
+              'error'
+            );
+        }
+      } else {
+        onDeleteError(
+          `Failed to delete ${item.productName}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          'error'
+        );
+      }
+    } finally {
+      setDeleteLoading(false);
+      setDeletingItem(null);
+      onSetDeleteMode(false);
     }
   };
 
@@ -418,7 +401,7 @@ const MainInventoryTable: React.FC<{
 
   return (
     <>
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+      <div className={`bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 transition-all duration-300 ${isDeleteMode ? 'blur-sm pointer-events-none' : ''}`}>
         <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -427,6 +410,7 @@ const MainInventoryTable: React.FC<{
             <button
               onClick={onRefresh}
               className="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
+              disabled={isDeleteMode}
             >
               🔄 Refresh
             </button>
@@ -443,6 +427,7 @@ const MainInventoryTable: React.FC<{
                     checked={selectedItems.size === inventory.length && inventory.length > 0}
                     onChange={onSelectAll}
                     className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                    disabled={isDeleteMode}
                   />
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
@@ -474,6 +459,7 @@ const MainInventoryTable: React.FC<{
                       checked={selectedItems.has(item.id)}
                       onChange={() => onSelectItem(item.id)}
                       className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                      disabled={isDeleteMode}
                     />
                   </td>
                   <td className="px-6 py-4">
@@ -507,22 +493,18 @@ const MainInventoryTable: React.FC<{
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={() => setAdjustingItem(item)}
-                        className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
-                      >
-                        Adjust
-                      </button>
-                      <button
                         onClick={() => handleEdit(item)}
                         className="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
+                        disabled={isDeleteMode}
                       >
                         Edit
                       </button>
                       <button
-                        onClick={() => handleDelete(item.id)}
-                        className="px-2 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors"
+                        onClick={() => handleDeleteClick(item)}
+                        className="px-2 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors disabled:opacity-50"
+                        disabled={isDeleteMode || deleteLoading}
                       >
-                        Delete
+                        {deleteLoading && deletingItem?.id === item.id ? 'Deleting...' : 'Delete'}
                       </button>
                     </div>
                   </td>
@@ -537,6 +519,7 @@ const MainInventoryTable: React.FC<{
               <button
                 onClick={() => navigate('/inventory/create')}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                disabled={isDeleteMode}
               >
                 Add Your First Item
               </button>
@@ -545,11 +528,27 @@ const MainInventoryTable: React.FC<{
         </div>
       </div>
 
-      <StockAdjustModal
-        item={adjustingItem}
-        show={!!adjustingItem}
-        onClose={() => setAdjustingItem(null)}
-        onAdjust={handleStockAdjust}
+      {/* Processing overlay */}
+      {isDeleteMode && deleteLoading && (
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-lg">
+            <div className="flex items-center gap-3">
+              <div className="w-6 h-6 border-2 border-red-500 border-t-transparent rounded-full animate-spin"></div>
+              <p className="text-gray-900 dark:text-white">
+                Deleting {deletingItem?.productName}...
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Hidden modal as requested */}
+      <DeleteConfirmationModal
+        item={deletingItem}
+        show={false}
+        onClose={() => setDeletingItem(null)}
+        onConfirm={() => {}}
+        loading={deleteLoading}
       />
     </>
   );
@@ -569,6 +568,9 @@ const InventoryManagement: React.FC = () => {
   const [filterStatus, setFilterStatus] = useState('all');
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [messageType, setMessageType] = useState<'success' | 'error' | 'warning'>('success');
+  const [isDeleteMode, setIsDeleteMode] = useState(false);
 
   // Load inventory
   const fetchInventory = async () => {
@@ -578,7 +580,11 @@ const InventoryManagement: React.FC = () => {
       const data = await InventoryService.getAllInventory();
       setInventory(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch inventory');
+      if (err instanceof InventoryError) {
+        setError(err.message);
+      } else {
+        setError(err instanceof Error ? err.message : 'Failed to fetch inventory');
+      }
     } finally {
       setLoading(false);
     }
@@ -635,15 +641,40 @@ const InventoryManagement: React.FC = () => {
     }
   };
 
-  // Handle bulk delete
+  // Handle bulk delete with enhanced error handling
   const handleBulkDelete = async () => {
-    if (selectedItems.size > 0 && confirm(`Delete ${selectedItems.size} selected items?`)) {
+    if (selectedItems.size === 0 || isDeleteMode) return;
+    
+    const selectedInventory = filteredInventory.filter(item => selectedItems.has(item.id));
+    const itemsWithStock = selectedInventory.filter(item => item.quantity > 0);
+    
+    // Check if any selected items have stock
+    if (itemsWithStock.length > 0) {
+      const itemNames = itemsWithStock.map(item => item.productName).join(', ');
+      setErrorMessage(
+        `Cannot delete ${itemsWithStock.length} item(s) with remaining stock: ${itemNames}. Please transfer or reduce stock to zero first.`
+      );
+      setMessageType('warning');
+      return;
+    }
+
+    if (confirm(`Delete ${selectedItems.size} selected items? This action cannot be undone.`)) {
+      setIsDeleteMode(true);
       try {
         await InventoryService.bulkDelete(Array.from(selectedItems));
         setSelectedItems(new Set());
+        setSuccessMessage(`Successfully deleted ${selectedItems.size} inventory items`);
+        setMessageType('success');
         await fetchInventory();
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to delete items');
+        if (err instanceof InventoryError) {
+          setErrorMessage(`Bulk delete failed: ${err.message}`);
+        } else {
+          setErrorMessage(`Failed to delete items: ${err instanceof Error ? err.message : 'Unknown error'}`);
+        }
+        setMessageType('error');
+      } finally {
+        setIsDeleteMode(false);
       }
     }
   };
@@ -673,6 +704,22 @@ const InventoryManagement: React.FC = () => {
     window.URL.revokeObjectURL(url);
   };
 
+  // Message handlers
+  const handleDeleteSuccess = (message: string) => {
+    setSuccessMessage(message);
+    setMessageType('success');
+  };
+
+  const handleDeleteError = (message: string, type: 'error' | 'warning' = 'error') => {
+    setErrorMessage(message);
+    setMessageType(type);
+  };
+
+  const clearMessages = () => {
+    setSuccessMessage(null);
+    setErrorMessage(null);
+  };
+
   // Load data on mount
   useEffect(() => {
     fetchInventory();
@@ -682,6 +729,7 @@ const InventoryManagement: React.FC = () => {
   useEffect(() => {
     if (location.state?.message) {
       setSuccessMessage(location.state.message);
+      setMessageType('success');
       // Clear the state to prevent showing the message again on refresh
       navigate(location.pathname, { replace: true, state: {} });
     }
@@ -689,25 +737,38 @@ const InventoryManagement: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {successMessage && (
-        <SuccessMessage 
+      {successMessage && messageType === 'success' && !isDeleteMode && (
+        <MessageAlert 
           message={successMessage} 
-          onClose={() => setSuccessMessage(null)} 
+          type="success"
+          onClose={clearMessages} 
         />
       )}
       
-      <InventoryStats inventory={inventory} />
+      {errorMessage && !isDeleteMode && (
+        <MessageAlert 
+          message={errorMessage} 
+          type={messageType}
+          onClose={clearMessages} 
+        />
+      )}
       
-      <InventoryFilters
-        searchTerm={searchTerm}
-        setSearchTerm={setSearchTerm}
-        filterStatus={filterStatus}
-        setFilterStatus={setFilterStatus}
-        selectedItems={selectedItems}
-        onBulkDelete={handleBulkDelete}
-        onExport={handleExport}
-        onClearSelection={() => setSelectedItems(new Set())}
-      />
+      <div className={`transition-all duration-300 ${isDeleteMode ? 'blur-sm pointer-events-none' : ''}`}>
+        <InventoryStats inventory={inventory} />
+      </div>
+      
+      <div className={`transition-all duration-300 ${isDeleteMode ? 'blur-sm pointer-events-none' : ''}`}>
+        <InventoryFilters
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+          filterStatus={filterStatus}
+          setFilterStatus={setFilterStatus}
+          selectedItems={selectedItems}
+          onBulkDelete={handleBulkDelete}
+          onExport={handleExport}
+          onClearSelection={() => setSelectedItems(new Set())}
+        />
+      </div>
       
       <MainInventoryTable
         inventory={filteredInventory}
@@ -717,6 +778,10 @@ const InventoryManagement: React.FC = () => {
         selectedItems={selectedItems}
         onSelectItem={handleSelectItem}
         onSelectAll={handleSelectAll}
+        onDeleteSuccess={handleDeleteSuccess}
+        onDeleteError={handleDeleteError}
+        isDeleteMode={isDeleteMode}
+        onSetDeleteMode={setIsDeleteMode}
       />
     </div>
   );
