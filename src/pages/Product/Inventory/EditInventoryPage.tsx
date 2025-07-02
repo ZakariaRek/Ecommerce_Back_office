@@ -1,8 +1,10 @@
 // src/pages/Inventory/EditInventoryPage.tsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { InventoryService, UpdateInventoryRequest, Inventory } from '../../services/inventory.service';
-import PageBreadcrumb from '../../components/common/PageBreadCrumb';
+import { InventoryService, UpdateInventoryRequest, Inventory } from '../../../services/inventory.service';
+import PageBreadcrumb from '../../../components/common/PageBreadCrumb';
+import { ProductService, ProductOption } from '../../../services/Product.service';
+
 
 const EditInventoryPage: React.FC = () => {
   const navigate = useNavigate();

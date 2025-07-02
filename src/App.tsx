@@ -29,9 +29,9 @@ import SupplierForm from "./pages/Product/Supplier/CreateSupplier";
 import CategoryCreateForm from "./pages/Product/Categorie/CategoryCreateForm";
 import CategoryList from "./pages/Product/Categorie/CategoryList";
 import SupplierList from "./pages/Product/Supplier/SupplierList";
-import InventoryTable from "./pages/Inventory/InventoryTable";
-import CreateInventoryPage from "./pages/Inventory/CreateInventoryPage";
-import EditInventoryPage from "./pages/Inventory/EditInventoryPage";
+import InventoryTable from "./pages/Product/Inventory/InventoryTable";
+import CreateInventoryPage from "./pages/Product/Inventory/CreateInventoryPage";
+import EditInventoryPage from "./pages/Product/Inventory/EditInventoryPage";
 
 export default function App() {
   return (
