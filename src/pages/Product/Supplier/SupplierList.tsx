@@ -11,6 +11,18 @@ interface Supplier {
   totalProducts: number;
 }
 
+interface Product {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  supplierId?: string;
+  supplierName?: string;
+  categoryId?: string;
+  categoryName?: string;
+  imageUrl?: string;
+}
+
 interface SupplierStats {
   totalSuppliers: number;
   averageRating: number;
@@ -137,6 +149,22 @@ const Input = ({ type, value, onChange, placeholder, className }: {
   />
 );
 
+const TextArea = ({ value, onChange, placeholder, rows = 3, className }: {
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
+  placeholder?: string;
+  rows?: number;
+  className?: string;
+}) => (
+  <textarea
+    value={value}
+    onChange={onChange}
+    placeholder={placeholder}
+    rows={rows}
+    className={`w-full px-4 py-3 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 dark:text-white transition-all duration-200 resize-none ${className}`}
+  />
+);
+
 const Select = ({ options, value, onChange, className }: {
   options: { value: string; label: string }[];
   value: string;
@@ -158,6 +186,7 @@ const Select = ({ options, value, onChange, className }: {
 
 export default function SupplierList({ onCreateSupplier, onEditSupplier, refreshTrigger }: SupplierListProps) {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [stats, setStats] = useState<SupplierStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -165,6 +194,24 @@ export default function SupplierList({ onCreateSupplier, onEditSupplier, refresh
   const [filterRating, setFilterRating] = useState('all');
   const [sortBy, setSortBy] = useState('name');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+  
+  // Edit modal states
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
+  const [loadingProducts, setLoadingProducts] = useState(false);
+  const [savingSupplier, setSavingSupplier] = useState(false);
+  
+  // Form states for editing
+  const [editForm, setEditForm] = useState({
+    name: '',
+    contactInfo: '',
+    address: '',
+    rating: 0
+  });
+  
+  // Product assignment states
+  const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set());
+  const [productSearchTerm, setProductSearchTerm] = useState('');
 
   useEffect(() => {
     // Inject custom styles
@@ -207,6 +254,30 @@ export default function SupplierList({ onCreateSupplier, onEditSupplier, refresh
       console.error('Fetch error:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchProducts = async () => {
+    try {
+      setLoadingProducts(true);
+      const token = getAuthToken();
+      
+      const response = await fetch(`${Product_Service_URL}/products`, {
+        headers: {
+          'Authorization': token ? `Bearer ${token}` : '',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setProducts(data);
+      } else {
+        console.error('Failed to fetch products');
+      }
+    } catch (err) {
+      console.error('Error fetching products:', err);
+    } finally {
+      setLoadingProducts(false);
     }
   };
 
@@ -253,6 +324,113 @@ export default function SupplierList({ onCreateSupplier, onEditSupplier, refresh
     }
   };
 
+  const handleEditSupplier = (supplier: Supplier) => {
+    setEditingSupplier(supplier);
+    setEditForm({
+      name: supplier.name,
+      contactInfo: supplier.contactInfo,
+      address: supplier.address,
+      rating: supplier.rating
+    });
+    
+    // Get products assigned to this supplier
+    const assignedProducts = products.filter(product => product.supplierId === supplier.id);
+    setSelectedProducts(new Set(assignedProducts.map(p => p.id)));
+    
+    setShowEditModal(true);
+    fetchProducts();
+  };
+
+  const updateSupplier = async () => {
+    if (!editingSupplier) return;
+    
+    try {
+      setSavingSupplier(true);
+      const token = getAuthToken();
+      
+      // Update supplier basic info
+      const supplierResponse = await fetch(`${Product_Service_URL}/suppliers/${editingSupplier.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : '',
+        },
+        body: JSON.stringify(editForm)
+      });
+
+      if (!supplierResponse.ok) {
+        throw new Error('Failed to update supplier');
+      }
+
+      // Update product assignments
+      const currentlyAssigned = products.filter(p => p.supplierId === editingSupplier.id).map(p => p.id);
+      const newlySelected = Array.from(selectedProducts);
+      
+      // Products to assign (newly selected)
+      const toAssign = newlySelected.filter(id => !currentlyAssigned.includes(id));
+      
+      // Products to unassign (previously assigned but now deselected)
+      const toUnassign = currentlyAssigned.filter(id => !newlySelected.includes(id));
+      
+      // Process assignments
+      for (const productId of toAssign) {
+        await fetch(`${Product_Service_URL}/products/${productId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': token ? `Bearer ${token}` : '',
+          },
+          body: JSON.stringify({
+            ...products.find(p => p.id === productId),
+            supplierId: editingSupplier.id
+          })
+        });
+      }
+      
+      // Process unassignments
+      for (const productId of toUnassign) {
+        const product = products.find(p => p.id === productId);
+        if (product) {
+          await fetch(`${Product_Service_URL}/products/${productId}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': token ? `Bearer ${token}` : '',
+            },
+            body: JSON.stringify({
+              ...product,
+              supplierId: null
+            })
+          });
+        }
+      }
+
+      // Refresh data
+      await fetchSuppliers();
+      await fetchStats();
+      await fetchProducts();
+      
+      setShowEditModal(false);
+      setEditingSupplier(null);
+      
+    } catch (err) {
+      console.error('Error updating supplier:', err);
+      alert(`Error updating supplier: ${err}`);
+    } finally {
+      setSavingSupplier(false);
+    }
+  };
+
+  const toggleProductSelection = (productId: string) => {
+    const newSelected = new Set(selectedProducts);
+    if (newSelected.has(productId)) {
+      newSelected.delete(productId);
+    } else {
+      newSelected.add(productId);
+    }
+    setSelectedProducts(newSelected);
+  };
+
   // Filter and sort suppliers
   const filteredAndSortedSuppliers = suppliers
     .filter(supplier => {
@@ -281,6 +459,12 @@ export default function SupplierList({ onCreateSupplier, onEditSupplier, refresh
           return 0;
       }
     });
+
+  // Filter products for assignment
+  const filteredProducts = products.filter(product =>
+    product.name.toLowerCase().includes(productSearchTerm.toLowerCase()) ||
+    product.description?.toLowerCase().includes(productSearchTerm.toLowerCase())
+  );
 
   const getRatingOptions = () => [
     { value: 'all', label: 'All Ratings' },
@@ -405,9 +589,9 @@ export default function SupplierList({ onCreateSupplier, onEditSupplier, refresh
             
             <div className="flex items-center space-x-2">
               <button
-                onClick={() => onEditSupplier?.(supplier)}
+                onClick={() => handleEditSupplier(supplier)}
                 className="p-2 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-lg transition-colors"
-                title="Edit supplier"
+                title="Edit supplier & manage products"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -598,6 +782,205 @@ export default function SupplierList({ onCreateSupplier, onEditSupplier, refresh
           )}
         </div>
       </div>
+
+      {/* Edit Supplier Modal */}
+      {showEditModal && editingSupplier && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="glass-card rounded-2xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto custom-scrollbar shadow-2xl border border-gray-200 dark:border-gray-700">
+            {/* Modal Header */}
+            <div className="green-gradient text-white p-6 rounded-t-2xl">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-2xl font-bold">Edit Supplier</h3>
+                  <p className="text-green-100">Update supplier information and manage product assignments</p>
+                </div>
+                <button
+                  onClick={() => setShowEditModal(false)}
+                  className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-8">
+              {/* Supplier Information Section */}
+              <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+                <h4 className="text-xl font-semibold text-gray-800 dark:text-white mb-4">Supplier Information</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Supplier Name
+                    </label>
+                    <Input
+                      type="text"
+                      value={editForm.name}
+                      onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                      placeholder="Enter supplier name"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Contact Information
+                    </label>
+                    <Input
+                      type="text"
+                      value={editForm.contactInfo}
+                      onChange={(e) => setEditForm({ ...editForm, contactInfo: e.target.value })}
+                      placeholder="Email, phone, etc."
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Address
+                    </label>
+                    <TextArea
+                      value={editForm.address}
+                      onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
+                      placeholder="Complete address"
+                      rows={2}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Rating (0-5)
+                    </label>
+                    <Input
+                      type="number"
+                      value={editForm.rating.toString()}
+                      onChange={(e) => setEditForm({ ...editForm, rating: parseFloat(e.target.value) || 0 })}
+                      placeholder="0.0"
+                      className=""
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Product Assignment Section */}
+              <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h4 className="text-xl font-semibold text-gray-800 dark:text-white">Product Assignment</h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Select products to assign to this supplier ({selectedProducts.size} selected)
+                    </p>
+                  </div>
+                  {loadingProducts && (
+                    <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-green-500"></div>
+                  )}
+                </div>
+
+                {/* Product Search */}
+                <div className="mb-4">
+                  <div className="relative">
+                    <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    <Input
+                      type="text"
+                      value={productSearchTerm}
+                      onChange={(e) => setProductSearchTerm(e.target.value)}
+                      placeholder="Search products..."
+                      className="pl-10"
+                    />
+                  </div>
+                </div>
+
+                {/* Products List */}
+                <div className="max-h-60 overflow-y-auto custom-scrollbar space-y-2">
+                  {loadingProducts ? (
+                    <div className="text-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-green-500 mx-auto mb-2"></div>
+                      <p className="text-gray-600 dark:text-gray-400">Loading products...</p>
+                    </div>
+                  ) : filteredProducts.length === 0 ? (
+                    <div className="text-center py-8 text-gray-600 dark:text-gray-400">
+                      No products found
+                    </div>
+                  ) : (
+                    filteredProducts.map((product) => (
+                      <div
+                        key={product.id}
+                        className={`flex items-center justify-between p-3 border border-gray-200 dark:border-gray-600 rounded-lg cursor-pointer transition-colors ${
+                          selectedProducts.has(product.id)
+                            ? 'bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-600'
+                            : 'hover:bg-gray-50 dark:hover:bg-gray-700'
+                        }`}
+                        onClick={() => toggleProductSelection(product.id)}
+                      >
+                        <div className="flex items-center space-x-3">
+                          <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${
+                            selectedProducts.has(product.id)
+                              ? 'bg-green-500 border-green-500'
+                              : 'border-gray-300 dark:border-gray-600'
+                          }`}>
+                            {selectedProducts.has(product.id) && (
+                              <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" />
+                              </svg>
+                            )}
+                          </div>
+                          <div className="flex-1">
+                            <p className="font-medium text-gray-800 dark:text-white">{product.name}</p>
+                            {product.description && (
+                              <p className="text-sm text-gray-600 dark:text-gray-400 truncate">{product.description}</p>
+                            )}
+                            <div className="flex items-center space-x-4 text-xs text-gray-500 dark:text-gray-400 mt-1">
+                              <span>${product.price}</span>
+                              {product.categoryName && <span>Category: {product.categoryName}</span>}
+                              {product.supplierId && product.supplierId !== editingSupplier?.id && (
+                                <span className="text-orange-500">Currently assigned to: {product.supplierName}</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex justify-between items-center pt-4 border-t border-gray-200 dark:border-gray-700">
+                <div className="text-sm text-gray-600 dark:text-gray-400">
+                  {selectedProducts.size} products selected for assignment
+                </div>
+                <div className="flex space-x-4">
+                  <button
+                    onClick={() => setShowEditModal(false)}
+                    className="px-6 py-3 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-semibold transition-all duration-300"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={updateSupplier}
+                    disabled={savingSupplier}
+                    className={`px-8 py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-xl font-semibold transition-all duration-300 shadow-lg flex items-center space-x-2 ${
+                      savingSupplier ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
+                  >
+                    {savingSupplier ? (
+                      <>
+                        <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white"></div>
+                        <span>Saving...</span>
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span>Save Changes</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
