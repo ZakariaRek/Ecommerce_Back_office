@@ -177,29 +177,7 @@ export class ProductService {
         status: product.status
       }));
       
-      // Option 2: If you want to include both ACTIVE and INACTIVE products
-      // return products
-      //   .filter(product => product.status === ProductStatus.ACTIVE || product.status === ProductStatus.INACTIVE)
-      //   .map(product => ({
-      //     value: product.id,
-      //     label: `${product.name} (${product.sku})`,
-      //     sku: product.sku,
-      //     price: product.price,
-      //     stock: product.stock,
-      //     status: product.status
-      //   }));
       
-      // Option 3: If you want to exclude only DISCONTINUED products
-      // return products
-      //   .filter(product => product.status !== ProductStatus.DISCONTINUED)
-      //   .map(product => ({
-      //     value: product.id,
-      //     label: `${product.name} (${product.sku})`,
-      //     sku: product.sku,
-      //     price: product.price,
-      //     stock: product.stock,
-      //     status: product.status
-      //   }));
     } catch (error) {
       console.error('Error fetching product options:', error);
       throw error;
