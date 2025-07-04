@@ -5,8 +5,13 @@ import { useSidebar } from "../context/SidebarContext";
 import { ThemeToggleButton } from "../components/common/ThemeToggleButton";
 import NotificationDropdown from "../components/header/NotificationDropdown";
 import UserDropdown from "../components/header/UserDropdown";
+import ShoppingCartDropdown from "./ShoppingCartDropdown";
 
-const AppHeader: React.FC = () => {
+interface AppHeaderProps {
+  userId?: string; // You'll need to pass the current user ID from your auth context
+}
+
+const AppHeader: React.FC<AppHeaderProps> = ({ userId }) => {
   const [isApplicationMenuOpen, setApplicationMenuOpen] = useState(false);
 
   const { isMobileOpen, toggleSidebar, toggleMobileSidebar } = useSidebar();
@@ -160,6 +165,11 @@ const AppHeader: React.FC = () => {
             {/* <!-- Dark Mode Toggler --> */}
             <ThemeToggleButton />
             {/* <!-- Dark Mode Toggler --> */}
+            
+            {/* <!-- Shopping Cart --> */}
+            <ShoppingCartDropdown userId={userId} />
+            {/* <!-- Shopping Cart --> */}
+            
             <NotificationDropdown />
             {/* <!-- Notification Menu Area --> */}
           </div>

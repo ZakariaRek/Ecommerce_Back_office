@@ -59,8 +59,14 @@ const navItems: NavItem[] = [
   },
   {
     icon: <UserCircleIcon />,
-    name: "User Management",
-    path: "/user-list",
+    name: "ADMIN Management",
+        subItems: [
+      
+      { name: "User Management", path: "/user-list", pro: false },
+      { name: "backend-monitoring", path: "/backend-monitoring", pro: false },
+      { name: "rate-limiting", path: "/rate-limiting", pro: false },
+    ],
+  
   },
   {
     icon: <UserCircleIcon />,

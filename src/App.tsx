@@ -32,6 +32,8 @@ import SupplierList from "./pages/Product/Supplier/SupplierList";
 import InventoryTable from "./pages/Product/Inventory/InventoryTable";
 import CreateInventoryPage from "./pages/Product/Inventory/CreateInventoryPage";
 import EditInventoryPage from "./pages/Product/Inventory/EditInventoryPage";
+import MonitoringDashboard from "./pages/Backend-Monitoring/backend-health";
+import RateLimitingDashboard from "./pages/Backend-Monitoring/Rate-Limiting";
 
 export default function App() {
   return (
@@ -81,6 +83,9 @@ export default function App() {
 
             {/* Forms */}
             <Route path="/form-elements" element={<FormElements />} />
+
+            <Route path="/backend-monitoring" element={<MonitoringDashboard />} />
+            <Route path="/rate-limiting" element={<RateLimitingDashboard />} />
 
             {/* Tables */}
             <Route path="/basic-tables" element={<BasicTables />} />

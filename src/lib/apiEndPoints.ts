@@ -1,6 +1,8 @@
 
 const BASE_URL = 'http://localhost:8099/api/';
 
+
+export const Cart_Service_URL = BASE_URL + "carts";
 //     User Service 
 export const User_Service_URL = BASE_URL +"users";
 export const Auth_URL = User_Service_URL + "/auth";
