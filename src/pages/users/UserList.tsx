@@ -1,25 +1,12 @@
 import { useState, useEffect } from "react";
-
-import { User_Service_URL } from "../../lib/apiEndPoints";
-
-interface Role {
-  id: string;
-  name: string;
-  description: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface User {
-  id: string;
-  username: string;
-  email: string;
-  password: string;
-  roles: Role[];
-  createdAt: string;
-  updatedAt: string;
-  status: "ACTIVE" | "INACTIVE";
-}
+import { 
+  UserService, 
+  User, 
+  UserStatus, 
+  ERole, 
+  UpdateUserRequest, 
+  Role 
+} from "../../services/user.service"; // Update this path to match your service location
 
 // Modern styles
 const modernStyles = `
@@ -78,49 +65,6 @@ const modernStyles = `
   }
 `;
 
-// Helper function to get cookie value
-const getCookie = (name: string): string | null => {
-  const cookies = document.cookie.split(';');
-  for (const cookie of cookies) {
-    const [cookieName, ...cookieValue] = cookie.trim().split('=');
-    if (cookieName === name) {
-      return cookieValue.join('=') || null;
-    }
-  }
-  return null;
-};
-
-// Helper function to format date
-const formatDate = (dateString: string): string => {
-  return new Intl.DateTimeFormat('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  }).format(new Date(dateString));
-};
-
-// Token management
-const getAuthToken = (): string | null => {
-  let tokenFromCookie = getCookie('token') || getCookie('auth-token') || getCookie('userservice');
-  
-  if (tokenFromCookie) {
-    tokenFromCookie = decodeURIComponent(tokenFromCookie);
-    if (tokenFromCookie.startsWith('"') && tokenFromCookie.endsWith('"')) {
-      tokenFromCookie = tokenFromCookie.slice(1, -1);
-    }
-    return tokenFromCookie;
-  }
-  
-  try {
-    const tokenFromStorage = localStorage.getItem('auth-token');
-    return tokenFromStorage;
-  } catch {
-    return null;
-  }
-};
-
 // Badge component
 const Badge = ({ 
   children, 
@@ -156,8 +100,8 @@ export default function UserList() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [roleFilter, setRoleFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<UserStatus | 'all'>('all');
+  const [roleFilter, setRoleFilter] = useState<ERole | 'all'>('all');
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -165,12 +109,12 @@ export default function UserList() {
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
 
-  // Edit form state
+  // Edit form state - All fields are required
   const [editForm, setEditForm] = useState({
     username: '',
     email: '',
-    status: 'ACTIVE' as 'ACTIVE' | 'INACTIVE',
-    roles: [] as Role[]
+    password: '', // Required field
+    roles: [] as string[], // Send as role name strings
   });
 
   useEffect(() => {
@@ -192,30 +136,7 @@ export default function UserList() {
         setLoading(true);
         setError(null);
         
-        const token = getAuthToken();
-        console.log("Token:", token);
-        
-        if (!token) {
-          throw new Error('Authentication token not found');
-        }
-
-        // Update this endpoint to match your user service
-        const response = await fetch(`${User_Service_URL}/users`, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          credentials: 'include'
-        });
-        
-        console.log("Response:", response);
-        
-        if (!response.ok) {
-          throw new Error(`Failed to fetch users: ${response.status} ${response.statusText}`);
-        }
-
-        const data = await response.json();
+        const data = await UserService.getAllUsers();
         console.log("Users data:", data);
         setUsers(data);
       } catch (err) {
@@ -234,30 +155,23 @@ export default function UserList() {
     new Set(users.flatMap(user => user.roles.map(role => role.name)))
   );
 
-  // Filter users based on search, status, and role
-  const filteredUsers = users.filter(user => {
-    const matchesSearch = user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         user.email.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesStatus = statusFilter === 'all' || user.status === statusFilter;
-    
-    const matchesRole = roleFilter === 'all' || 
-                       user.roles.some(role => role.name === roleFilter);
-    
-    return matchesSearch && matchesStatus && matchesRole;
-  });
+  // Filter users using UserService utilities
+  const filteredUsers = UserService.filterUsersByStatus(
+    UserService.filterUsersByRole(
+      UserService.searchUsers(users, searchTerm),
+      roleFilter
+    ),
+    statusFilter
+  );
 
   // Get user avatar initial
   const getUserInitials = (username: string): string => {
     return username.slice(0, 2).toUpperCase();
   };
 
-  // Get role badge color
-  const getRoleBadgeVariant = (roleName: string) => {
-    if (roleName.includes('ADMIN')) return 'error';
-    if (roleName.includes('USER')) return 'info';
-    if (roleName.includes('MANAGER')) return 'warning';
-    return 'default';
+  // Get role badge color using UserService
+  const getRoleBadgeVariant = (roleName: ERole) => {
+    return UserService.getRoleColor(roleName);
   };
 
   // Handle user actions
@@ -272,8 +186,8 @@ export default function UserList() {
     setEditForm({
       username: user.username,
       email: user.email,
-      status: user.status,
-      roles: user.roles
+      password: '', // User must enter password
+      roles: UserService.getUserRoleNames(user), // Convert Role objects to role name strings
     });
     setShowEditModal(true);
   };
@@ -281,36 +195,37 @@ export default function UserList() {
   const handleUpdateUser = async () => {
     if (!editingUser) return;
 
+    // Validate using UserService
+    const validation = UserService.validateUserData({
+      username: editForm.username,
+      email: editForm.email,
+      password: editForm.password,
+      roles: editForm.roles
+    });
+
+    if (!validation.valid) {
+      alert(`Validation errors:\n${validation.errors.join('\n')}`);
+      return;
+    }
+
     setIsUpdating(true);
 
     try {
-      const token = getAuthToken();
-      if (!token) {
-        throw new Error('Authentication token not found');
-      }
-
-      const updatedUserData = {
-        ...editForm,
-        updatedAt: new Date().toISOString()
+      // Prepare the request body - all fields are required
+      const updateRequest: UpdateUserRequest = {
+        username: editForm.username,
+        email: editForm.email,
+        password: editForm.password, // Password is always required
+        roles: editForm.roles, // Send role names as strings array
       };
 
-      const response = await fetch(`${Product_Service_URL}/users/${editingUser.id}`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(updatedUserData)
-      });
+      console.log('Sending update request:', updateRequest);
 
-      if (!response.ok) {
-        throw new Error(`Failed to update user: ${response.status} ${response.statusText}`);
-      }
+      const updatedUser = await UserService.updateUser(editingUser.id, updateRequest);
 
-      const updatedUser = await response.json();
-
+      // Update the users list with the updated user
       setUsers(prev => prev.map(u => 
-        u.id === editingUser.id ? { ...u, ...updatedUser } : u
+        u.id === editingUser.id ? updatedUser : u
       ));
 
       setShowEditModal(false);
@@ -325,6 +240,22 @@ export default function UserList() {
     }
   };
 
+  const handleUpdateStatus = async (user: User, newStatus: UserStatus) => {
+    try {
+      const updatedUser = await UserService.updateUserStatus(user.id, newStatus);
+      
+      // Update the users list
+      setUsers(prev => prev.map(u => 
+        u.id === user.id ? updatedUser : u
+      ));
+
+      alert(`User status updated to ${UserService.getStatusDisplayName(newStatus)} successfully!`);
+    } catch (error) {
+      console.error('Error updating user status:', error);
+      alert(`Failed to update user status: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
+
   const handleDelete = async (e: React.MouseEvent, user: User) => {
     e.stopPropagation();
     
@@ -335,23 +266,8 @@ export default function UserList() {
     setIsDeleting(user.id);
     
     try {
-      const token = getAuthToken();
-      if (!token) {
-        throw new Error('Authentication token not found');
-      }
-
-      const response = await fetch(`${Product_Service_URL}/users/${user.id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to delete user: ${response.status} ${response.statusText}`);
-      }
-
+      await UserService.deleteUser(user.id);
+      
       setUsers(prev => prev.filter(u => u.id !== user.id));
       alert('User deleted successfully!');
     } catch (error) {
@@ -483,21 +399,26 @@ export default function UserList() {
               <div className="flex items-center gap-3">
                 <select
                   value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
+                  onChange={(e) => setStatusFilter(e.target.value as UserStatus | 'all')}
                   className="px-4 py-3 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white transition-all duration-200"
                 >
                   <option value="all">All Status</option>
-                  <option value="ACTIVE">Active</option>
-                  <option value="INACTIVE">Inactive</option>
+                  {Object.values(UserStatus).map(status => (
+                    <option key={status} value={status}>
+                      {UserService.getStatusDisplayName(status)}
+                    </option>
+                  ))}
                 </select>
                 <select
                   value={roleFilter}
-                  onChange={(e) => setRoleFilter(e.target.value)}
+                  onChange={(e) => setRoleFilter(e.target.value as ERole | 'all')}
                   className="px-4 py-3 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white transition-all duration-200"
                 >
                   <option value="all">All Roles</option>
                   {uniqueRoles.map(role => (
-                    <option key={role} value={role}>{role}</option>
+                    <option key={role} value={role}>
+                      {UserService.getRoleDisplayName(role)}
+                    </option>
                   ))}
                 </select>
                 <div className="flex items-center gap-2 px-3 py-2 bg-purple-50 dark:bg-purple-900/20 rounded-full">
@@ -570,9 +491,9 @@ export default function UserList() {
                         {/* Status Badge */}
                         <div className="absolute top-3 right-3">
                           <Badge
-                            variant={user.status === "ACTIVE" ? "success" : "warning"}
+                            variant={UserService.getStatusColor(user.status) as any}
                           >
-                            {user.status}
+                            {UserService.getStatusDisplayName(user.status)}
                           </Badge>
                         </div>
 
@@ -610,10 +531,10 @@ export default function UserList() {
                               {user.roles.map((role) => (
                                 <Badge
                                   key={role.id}
-                                  variant={getRoleBadgeVariant(role.name)}
+                                  variant={UserService.getRoleColor(role.name) as any}
                                   size="sm"
                                 >
-                                  {role.name.replace('ROLE_', '')}
+                                  {UserService.getRoleDisplayName(role.name)}
                                 </Badge>
                               ))}
                             </div>
@@ -625,17 +546,23 @@ export default function UserList() {
                           </div>
 
                           {/* Timestamps */}
-                          <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
-                            <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
-                              <span>Updated: {formatDate(user.updatedAt)}</span>
-                              <div className="flex items-center gap-1">
-                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                                {formatDate(user.createdAt)}
+                          {(user.createdAt || user.updatedAt) && (
+                            <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
+                              <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+                                {user.updatedAt && (
+                                  <span>Updated: {UserService.formatDate(user.updatedAt)}</span>
+                                )}
+                                {user.createdAt && (
+                                  <div className="flex items-center gap-1">
+                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    {UserService.formatDate(user.createdAt)}
+                                  </div>
+                                )}
                               </div>
                             </div>
-                          </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -695,9 +622,14 @@ export default function UserList() {
                         required
                         value={editForm.username}
                         onChange={(e) => setEditForm(prev => ({ ...prev, username: e.target.value }))}
-                        className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white transition-all duration-200"
+                        className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white transition-all duration-200 ${
+                          !UserService.validateUsername(editForm.username) ? 'border-red-300 dark:border-red-600' : 'border-gray-300 dark:border-gray-600'
+                        }`}
                         placeholder="Enter username"
                       />
+                      {editForm.username && !UserService.validateUsername(editForm.username) && (
+                        <p className="text-red-500 text-xs mt-1">Username must be 3-20 characters, alphanumeric and underscores only</p>
+                      )}
                     </div>
 
                     <div>
@@ -709,41 +641,62 @@ export default function UserList() {
                         required
                         value={editForm.email}
                         onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))}
-                        className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white transition-all duration-200"
+                        className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white transition-all duration-200 ${
+                          !UserService.validateEmail(editForm.email) ? 'border-red-300 dark:border-red-600' : 'border-gray-300 dark:border-gray-600'
+                        }`}
                         placeholder="Enter email address"
                       />
+                      {editForm.email && !UserService.validateEmail(editForm.email) && (
+                        <p className="text-red-500 text-xs mt-1">Please enter a valid email address</p>
+                      )}
                     </div>
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Status *
+                        Password *
                       </label>
-                      <select
-                        value={editForm.status}
-                        onChange={(e) => setEditForm(prev => ({ ...prev, status: e.target.value as 'ACTIVE' | 'INACTIVE' }))}
-                        className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white transition-all duration-200"
-                      >
-                        <option value="ACTIVE">Active</option>
-                        <option value="INACTIVE">Inactive</option>
-                      </select>
+                      <input
+                        type="password"
+                        required
+                        value={editForm.password}
+                        onChange={(e) => setEditForm(prev => ({ ...prev, password: e.target.value }))}
+                        className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white transition-all duration-200 ${
+                          editForm.password && !UserService.validatePassword(editForm.password).valid ? 'border-red-300 dark:border-red-600' : 'border-gray-300 dark:border-gray-600'
+                        }`}
+                        placeholder="Enter password (required)"
+                      />
+                      {editForm.password && !UserService.validatePassword(editForm.password).valid && (
+                        <div className="text-red-500 text-xs mt-1">
+                          {UserService.validatePassword(editForm.password).errors.map((error, index) => (
+                            <p key={index}>• {error}</p>
+                          ))}
+                        </div>
+                      )}
                     </div>
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Current Roles
+                        Current Roles *
                       </label>
-                      <div className="flex flex-wrap gap-2 p-3 bg-gray-50 dark:bg-gray-700 rounded-xl">
-                        {editForm.roles.map((role) => (
+                      <div className={`flex flex-wrap gap-2 p-3 rounded-xl ${
+                        editForm.roles.length === 0 
+                          ? 'bg-red-50 dark:bg-red-900/20 border-2 border-red-300 dark:border-red-600' 
+                          : 'bg-gray-50 dark:bg-gray-700'
+                      }`}>
+                        {editForm.roles.map((roleName) => (
                           <Badge
-                            key={role.id}
-                            variant={getRoleBadgeVariant(role.name)}
+                            key={roleName}
+                            variant={UserService.getRoleColor(roleName as ERole) as any}
                           >
-                            {role.name.replace('ROLE_', '')}
+                            {UserService.getRoleDisplayName(roleName as ERole)}
                           </Badge>
                         ))}
+                        {editForm.roles.length === 0 && (
+                          <span className="text-red-500 dark:text-red-400 text-sm font-medium">⚠️ No roles assigned - At least one role is required</span>
+                        )}
                       </div>
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        Note: Role management may require additional permissions
+                        Note: At least one role is required. Role management may require additional permissions.
                       </p>
                     </div>
                   </div>
@@ -761,7 +714,7 @@ export default function UserList() {
                   <button
                     type="button"
                     onClick={handleUpdateUser}
-                    disabled={isUpdating}
+                    disabled={isUpdating || !UserService.validateUserData(editForm).valid}
                     className="flex-1 px-6 py-3 bg-gradient-to-r from-purple-500 to-blue-600 hover:from-purple-600 hover:to-blue-700 disabled:from-purple-300 disabled:to-blue-400 text-white rounded-xl font-medium transition-all duration-300 transform hover:scale-105 disabled:transform-none flex items-center justify-center gap-2"
                   >
                     {isUpdating ? (
@@ -837,38 +790,57 @@ export default function UserList() {
                       </div>
                       <div>
                         <span className="font-semibold text-purple-700 dark:text-purple-300">Status:</span>
-                        <div className="mt-2">
+                        <div className="mt-2 flex items-center gap-2">
                           <Badge
-                            variant={selectedUser.status === "ACTIVE" ? "success" : "warning"}
+                            variant={UserService.getStatusColor(selectedUser.status) as any}
                           >
-                            {selectedUser.status}
+                            {UserService.getStatusDisplayName(selectedUser.status)}
                           </Badge>
+                          {/* Status Change Buttons */}
+                          <div className="flex gap-1">
+                            {Object.values(UserStatus).filter(status => status !== selectedUser.status).map(status => (
+                              <button
+                                key={status}
+                                onClick={() => handleUpdateStatus(selectedUser, status)}
+                                className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 rounded transition-colors"
+                                title={`Change to ${UserService.getStatusDisplayName(status)}`}
+                              >
+                                {UserService.getStatusDisplayName(status)}
+                              </button>
+                            ))}
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
 
                   {/* Timeline */}
-                  <div className="bg-gradient-to-br from-gray-50 to-slate-50 dark:from-gray-900/20 dark:to-slate-900/20 rounded-2xl p-6 border border-gray-200 dark:border-gray-700">
-                    <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center">
-                      <div className="w-8 h-8 bg-gray-500 rounded-lg flex items-center justify-center mr-3">
-                        <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                      </div>
-                      Timeline
-                    </h3>
-                    <div className="space-y-3">
-                      <div>
-                        <span className="font-semibold text-gray-700 dark:text-gray-300">Created:</span>
-                        <p className="text-gray-800 dark:text-gray-200 mt-1">{formatDate(selectedUser.createdAt)}</p>
-                      </div>
-                      <div>
-                        <span className="font-semibold text-gray-700 dark:text-gray-300">Last Updated:</span>
-                        <p className="text-gray-800 dark:text-gray-200 mt-1">{formatDate(selectedUser.updatedAt)}</p>
+                  {(selectedUser.createdAt || selectedUser.updatedAt) && (
+                    <div className="bg-gradient-to-br from-gray-50 to-slate-50 dark:from-gray-900/20 dark:to-slate-900/20 rounded-2xl p-6 border border-gray-200 dark:border-gray-700">
+                      <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center">
+                        <div className="w-8 h-8 bg-gray-500 rounded-lg flex items-center justify-center mr-3">
+                          <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </div>
+                        Timeline
+                      </h3>
+                      <div className="space-y-3">
+                        {selectedUser.createdAt && (
+                          <div>
+                            <span className="font-semibold text-gray-700 dark:text-gray-300">Created:</span>
+                            <p className="text-gray-800 dark:text-gray-200 mt-1">{UserService.formatDate(selectedUser.createdAt)}</p>
+                          </div>
+                        )}
+                        {selectedUser.updatedAt && (
+                          <div>
+                            <span className="font-semibold text-gray-700 dark:text-gray-300">Last Updated:</span>
+                            <p className="text-gray-800 dark:text-gray-200 mt-1">{UserService.formatDate(selectedUser.updatedAt)}</p>
+                          </div>
+                        )}
                       </div>
                     </div>
-                  </div>
+                  )}
                 </div>
 
                 {/* Right Column - Roles & Permissions */}
@@ -888,23 +860,14 @@ export default function UserList() {
                         <div key={role.id} className="bg-white/50 dark:bg-gray-800/50 rounded-xl p-4 border border-blue-200/50 dark:border-blue-800/50">
                           <div className="flex items-center justify-between mb-2">
                             <Badge
-                              variant={getRoleBadgeVariant(role.name)}
+                              variant={UserService.getRoleColor(role.name) as any}
                               size="md"
                             >
-                              {role.name.replace('ROLE_', '')}
+                              {UserService.getRoleDisplayName(role.name)}
                             </Badge>
                             <span className="text-xs text-blue-600 dark:text-blue-400 font-mono">
                               {role.id.slice(0, 8)}...
                             </span>
-                          </div>
-                          {role.description && (
-                            <p className="text-sm text-blue-700 dark:text-blue-300 mt-2">
-                              {role.description}
-                            </p>
-                          )}
-                          <div className="flex items-center justify-between text-xs text-blue-600 dark:text-blue-400 mt-3">
-                            <span>Created: {formatDate(role.createdAt)}</span>
-                            <span>Updated: {formatDate(role.updatedAt)}</span>
                           </div>
                         </div>
                       ))}

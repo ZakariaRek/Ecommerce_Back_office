@@ -34,6 +34,7 @@ import CreateInventoryPage from "./pages/Product/Inventory/CreateInventoryPage";
 import EditInventoryPage from "./pages/Product/Inventory/EditInventoryPage";
 import MonitoringDashboard from "./pages/Backend-Monitoring/backend-health";
 import RateLimitingDashboard from "./pages/Backend-Monitoring/Rate-Limiting";
+import SignupComponent from "./pages/users/CreateUser";
 
 export default function App() {
   return (
@@ -59,6 +60,7 @@ export default function App() {
 
              {/* Users */}
             <Route path="/user-list" element={<UserList />} />
+            <Route path="/Create-user" element={<SignupComponent />} />
 
             {/* Product */}
             <Route path="/product" element={<ProductList />} />
