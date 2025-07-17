@@ -35,6 +35,7 @@ import EditInventoryPage from "./pages/Product/Inventory/EditInventoryPage";
 import MonitoringDashboard from "./pages/Backend-Monitoring/backend-health";
 import RateLimitingDashboard from "./pages/Backend-Monitoring/Rate-Limiting";
 import SignupComponent from "./pages/users/CreateUser";
+import OrderList from "./pages/Order/Orderlist";
 
 export default function App() {
   return (
@@ -74,12 +75,14 @@ export default function App() {
             <Route path="/profile" element={<UserProfiles />} />
             <Route path="/calendar" element={<Calendar />} />  
 
-            {/* Products */}
+            {/* Inventory */}
+
 
             <Route path="/inventory" element={<InventoryTable />} />
             <Route path="/inventory/create" element={<CreateInventoryPage />} />
             <Route path="/inventory/edit/:id" element={<EditInventoryPage />} />
-
+            {/* Order */} 
+                 <Route path="/order" element={<OrderList />} />
 
             <Route path="/blank" element={<Blank />} />
 
