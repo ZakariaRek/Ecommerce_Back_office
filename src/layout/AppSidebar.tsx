@@ -61,11 +61,23 @@ const navItems: NavItem[] = [
     icon: <UserCircleIcon />,
     name: "Admin Management",
         subItems: [
-         { name: "Create User", path: "/Create-user", pro: false },
-      { name: "User Management", path: "/user-list", pro: false },
-   
+      { name: "Create User", path: "/Create-user", pro: false },
+      { name: "User Management", path: "/user-list", pro: false }, 
+      { name: "Order Management", path: "/order", pro: false },
       { name: "backend-monitoring", path: "/backend-monitoring", pro: false },
       { name: "rate-limiting", path: "/rate-limiting", pro: false },
+    ],
+  
+  },
+    {
+    icon: <UserCircleIcon />,
+ name: "Crm Management",
+        subItems: [
+      { name: "CRM User", path: "/crm", pro: false },
+      { name: "Point Transaction", path: "/crm-Point-Transactions", pro: false }, 
+      { name: "Tier Benefits", path: "/crm-LoyaltyDashboard", pro: false },
+      { name: "Coupons", path: "/crm-CouponsList", pro: false },
+
     ],
   
   },

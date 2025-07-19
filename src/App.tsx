@@ -36,6 +36,10 @@ import MonitoringDashboard from "./pages/Backend-Monitoring/backend-health";
 import RateLimitingDashboard from "./pages/Backend-Monitoring/Rate-Limiting";
 import SignupComponent from "./pages/users/CreateUser";
 import OrderList from "./pages/Order/Orderlist";
+import CRMUsersList from "./pages/CRM/CrmDisplay";
+import TransactionsList from "./pages/CRM/PointTransactionDisplay";
+import CouponsList from "./pages/CRM/CouponDisplay";
+import LoyaltyDashboard from "./pages/CRM/LoayltBenefitsDisplay";
 
 export default function App() {
   return (
@@ -83,6 +87,21 @@ export default function App() {
             <Route path="/inventory/edit/:id" element={<EditInventoryPage />} />
             {/* Order */} 
                  <Route path="/order" element={<OrderList />} />
+
+
+
+            {/* CRM */}
+            <Route path="/crm" element={<CRMUsersList />} />
+              <Route path="/crm-Point-Transactions" element={<TransactionsList />} />
+                <Route path="/crm-CouponsList" element={<CouponsList />} />
+                 <Route path="/crm-LoyaltyDashboard" element={<LoyaltyDashboard />} />
+            
+            
+
+
+
+
+
 
             <Route path="/blank" element={<Blank />} />
 
