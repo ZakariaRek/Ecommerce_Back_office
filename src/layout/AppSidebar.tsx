@@ -76,6 +76,7 @@ const navItems: NavItem[] = [
       { name: "CRM User", path: "/crm", pro: false },
       { name: "Point Transaction", path: "/crm-Point-Transactions", pro: false }, 
       { name: "Tier Benefits", path: "/crm-LoyaltyDashboard", pro: false },
+       { name: "Tier Benefits Wizzard", path: "/crm-CreateTierBenefit", pro: false },
       { name: "Coupons", path: "/crm-CouponsList", pro: false },
 
     ],

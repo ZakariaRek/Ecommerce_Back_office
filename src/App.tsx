@@ -40,6 +40,7 @@ import CRMUsersList from "./pages/CRM/CrmDisplay";
 import TransactionsList from "./pages/CRM/PointTransactionDisplay";
 import CouponsList from "./pages/CRM/CouponDisplay";
 import LoyaltyDashboard from "./pages/CRM/LoayltBenefitsDisplay";
+import CreateTierBenefitWizard from "./pages/CRMFormes/CreateTierBenefitWizard";
 
 export default function App() {
   return (
@@ -95,6 +96,7 @@ export default function App() {
               <Route path="/crm-Point-Transactions" element={<TransactionsList />} />
                 <Route path="/crm-CouponsList" element={<CouponsList />} />
                  <Route path="/crm-LoyaltyDashboard" element={<LoyaltyDashboard />} />
+                  <Route path="/crm-CreateTierBenefit" element={<CreateTierBenefitWizard />} />
             
             
 
