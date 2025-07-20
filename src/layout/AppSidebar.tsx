@@ -82,6 +82,17 @@ const navItems: NavItem[] = [
     ],
   
   },
+
+      {
+    icon: <UserCircleIcon />,
+ name: "Shipping Management",
+        subItems: [
+      { name: "Shipping List", path: "/Shipping", pro: false },
+      { name: "Shipping Tracking", path: "/Shipping-tracking", pro: false }, 
+
+    ],
+  
+  },
   {
     icon: <UserCircleIcon />,
     name: "User Profile",
