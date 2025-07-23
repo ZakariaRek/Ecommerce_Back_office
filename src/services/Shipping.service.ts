@@ -22,6 +22,11 @@ export interface ShippingResponseDto {
   estimated_delivery?: string;
   shipped_date?: string;
   delivered_date?: string;
+  shipping_address_id?: string;
+  weight?: number;
+  dimensions?: string;
+  current_latitude?: number;
+  current_longitude?: number;
   created_at: string;
   updated_at: string;
   tracking_history?: ShipmentTrackingDto[];
@@ -34,18 +39,106 @@ export interface ShipmentTrackingDto {
   timestamp: string;
   status: string;
   notes?: string;
+  latitude?: number;
+  longitude?: number;
+  device_id?: string;
+  driver_id?: string;
+  created_at: string;
+}
+
+export interface AddressDto {
+  id: string;
+  first_name: string;
+  last_name: string;
+  company?: string;
+  address_line1: string;
+  address_line2?: string;
+  city: string;
+  state: string;
+  postal_code: string;
+  country: string;
+  phone?: string;
+  email?: string;
+  latitude?: number;
+  longitude?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LocationUpdateDto {
+  id: string;
+  shipping_id: string;
+  device_id: string;
+  latitude: number;
+  longitude: number;
+  speed?: number;
+  heading?: number;
+  accuracy?: number;
+  timestamp: string;
   created_at: string;
 }
 
 export interface CreateShippingRequest {
   order_id: string;
   carrier: string;
+  shipping_address_id?: string;
+  weight?: number;
+  dimensions?: string;
+}
+
+export interface CreateShippingWithAddressRequest {
+  order_id: string;
+  carrier: string;
+  shipping_address: CreateAddressRequest;
+  weight?: number;
+  dimensions?: string;
+}
+
+export interface CreateAddressRequest {
+  first_name: string;
+  last_name: string;
+  company?: string;
+  address_line1: string;
+  address_line2?: string;
+  city: string;
+  state: string;
+  postal_code: string;
+  country: string;
+  phone?: string;
+  email?: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface UpdateStatusRequest {
   status: ShippingStatus;
   location?: string;
   notes?: string;
+}
+
+export interface UpdateStatusWithGPSRequest {
+  status: ShippingStatus;
+  location?: string;
+  notes?: string;
+  latitude?: number;
+  longitude?: number;
+  device_id?: string;
+  driver_id?: string;
+}
+
+export interface UpdateLocationRequest {
+  latitude: number;
+  longitude: number;
+  device_id?: string;
+}
+
+export interface AddLocationUpdateRequest {
+  device_id: string;
+  latitude: number;
+  longitude: number;
+  speed?: number;
+  heading?: number;
+  accuracy?: number;
 }
 
 export interface TrackingResponse {
@@ -120,12 +213,13 @@ const getRequestHeaders = (): HeadersInit => {
   };
 };
 
-// Base URL for Shipping endpoints
-const SHIPPING_BASE_URL = Shipping_Service_URL;
+// Base URL for API endpoints
+const SHIPPING_BASE_URL = Shipping_Service_URL ;
+const ADDRESS_BASE_URL = Shipping_Service_URL + '/addresses';
 
 export class ShippingService {
   
-  // Create new shipping
+  // Create new shipping (backward compatibility)
   static async createShipping(request: CreateShippingRequest): Promise<ShippingResponseDto> {
     try {
       const response = await fetch(`${SHIPPING_BASE_URL}`, {
@@ -152,6 +246,33 @@ export class ShippingService {
     }
   }
 
+  // Create shipping with address
+  static async createShippingWithAddress(request: CreateShippingWithAddressRequest): Promise<ShippingResponseDto> {
+    try {
+      const response = await fetch(`${SHIPPING_BASE_URL}/with-address`, {
+        method: 'POST',
+        headers: getRequestHeaders(),
+        credentials: 'include',
+        body: JSON.stringify(request)
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to create shipping with address: ${response.status} ${response.statusText}`);
+      }
+
+      const result: APIResponse<ShippingResponseDto> = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to create shipping with address');
+      }
+
+      return result.data!;
+    } catch (error) {
+      console.error('Error creating shipping with address:', error);
+      throw error;
+    }
+  }
+
   // Get all shippings with pagination
   static async getAllShippings(limit: number = 10, offset: number = 0): Promise<PaginatedShippingResponse> {
     try {
@@ -160,7 +281,7 @@ export class ShippingService {
         offset: offset.toString()
       });
 
-      const response = await fetch(`${SHIPPING_BASE_URL}?${params}`, {
+      const response = await fetch(`${SHIPPING_BASE_URL}`, {
         method: 'GET',
         headers: getRequestHeaders(),
         credentials: 'include'
@@ -241,6 +362,63 @@ export class ShippingService {
     }
   }
 
+  // Get shippings by status
+  static async getShippingsByStatus(status: ShippingStatus, limit: number = 10, offset: number = 0): Promise<ShippingResponseDto[]> {
+    try {
+      const params = new URLSearchParams({
+        limit: limit.toString(),
+        offset: offset.toString()
+      });
+
+      const response = await fetch(`${SHIPPING_BASE_URL}/status/${status}?${params}`, {
+        method: 'GET',
+        headers: getRequestHeaders(),
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch shippings by status: ${response.status} ${response.statusText}`);
+      }
+
+      const result: APIResponse<ShippingResponseDto[]> = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to fetch shippings by status');
+      }
+
+      return result.data!;
+    } catch (error) {
+      console.error('Error fetching shippings by status:', error);
+      throw error;
+    }
+  }
+
+  // Get in-transit shippings
+  static async getShippingsInTransit(): Promise<ShippingResponseDto[]> {
+    try {
+      const response = await fetch(`${SHIPPING_BASE_URL}/in-transit`, {
+        method: 'GET',
+        headers: getRequestHeaders(),
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch in-transit shippings: ${response.status} ${response.statusText}`);
+      }
+
+      const result: APIResponse<ShippingResponseDto[]> = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to fetch in-transit shippings');
+      }
+
+      return result.data!;
+    } catch (error) {
+      console.error('Error fetching in-transit shippings:', error);
+      throw error;
+    }
+  }
+
   // Update shipping
   static async updateShipping(shippingId: string, shipping: Partial<ShippingResponseDto>): Promise<ShippingResponseDto> {
     try {
@@ -289,6 +467,111 @@ export class ShippingService {
       }
     } catch (error) {
       console.error('Error updating shipping status:', error);
+      throw error;
+    }
+  }
+
+  // Update shipping status with GPS
+  static async updateShippingStatusWithGPS(shippingId: string, statusUpdate: UpdateStatusWithGPSRequest): Promise<void> {
+    try {
+      const response = await fetch(`${SHIPPING_BASE_URL}/${shippingId}/status/gps`, {
+        method: 'PATCH',
+        headers: getRequestHeaders(),
+        credentials: 'include',
+        body: JSON.stringify(statusUpdate)
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to update shipping status with GPS: ${response.status} ${response.statusText}`);
+      }
+
+      const result: APIResponse = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to update shipping status with GPS');
+      }
+    } catch (error) {
+      console.error('Error updating shipping status with GPS:', error);
+      throw error;
+    }
+  }
+
+  // Update current location
+  static async updateCurrentLocation(shippingId: string, locationUpdate: UpdateLocationRequest): Promise<void> {
+    try {
+      const response = await fetch(`${SHIPPING_BASE_URL}/${shippingId}/location`, {
+        method: 'PATCH',
+        headers: getRequestHeaders(),
+        credentials: 'include',
+        body: JSON.stringify(locationUpdate)
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to update current location: ${response.status} ${response.statusText}`);
+      }
+
+      const result: APIResponse = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to update current location');
+      }
+    } catch (error) {
+      console.error('Error updating current location:', error);
+      throw error;
+    }
+  }
+
+  // Add location update
+  static async addLocationUpdate(shippingId: string, locationUpdate: AddLocationUpdateRequest): Promise<void> {
+    try {
+      const response = await fetch(`${SHIPPING_BASE_URL}/${shippingId}/location-update`, {
+        method: 'POST',
+        headers: getRequestHeaders(),
+        credentials: 'include',
+        body: JSON.stringify(locationUpdate)
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to add location update: ${response.status} ${response.statusText}`);
+      }
+
+      const result: APIResponse = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to add location update');
+      }
+    } catch (error) {
+      console.error('Error adding location update:', error);
+      throw error;
+    }
+  }
+
+  // Get location history
+  static async getLocationHistory(shippingId: string, limit: number = 50): Promise<LocationUpdateDto[]> {
+    try {
+      const params = new URLSearchParams({
+        limit: limit.toString()
+      });
+
+      const response = await fetch(`${SHIPPING_BASE_URL}/${shippingId}/location-history?${params}`, {
+        method: 'GET',
+        headers: getRequestHeaders(),
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to get location history: ${response.status} ${response.statusText}`);
+      }
+
+      const result: APIResponse<LocationUpdateDto[]> = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to get location history');
+      }
+
+      return result.data!;
+    } catch (error) {
+      console.error('Error getting location history:', error);
       throw error;
     }
   }
@@ -574,5 +857,214 @@ export class ShippingService {
     });
 
     return stats;
+  }
+}
+
+// Address Service
+export class AddressService {
+  
+  // Create new address
+  static async createAddress(request: CreateAddressRequest): Promise<AddressDto> {
+    try {
+      const response = await fetch(`${ADDRESS_BASE_URL}`, {
+        method: 'POST',
+        headers: getRequestHeaders(),
+        credentials: 'include',
+        body: JSON.stringify(request)
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to create address: ${response.status} ${response.statusText}`);
+      }
+
+      const result: APIResponse<AddressDto> = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to create address');
+      }
+
+      return result.data!;
+    } catch (error) {
+      console.error('Error creating address:', error);
+      throw error;
+    }
+  }
+
+  // Get address by ID
+  static async getAddressById(addressId: string): Promise<AddressDto> {
+    try {
+      const response = await fetch(`${ADDRESS_BASE_URL}/${addressId}`, {
+        method: 'GET',
+        headers: getRequestHeaders(),
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error('Address not found');
+        }
+        throw new Error(`Failed to fetch address: ${response.status} ${response.statusText}`);
+      }
+
+      const result: APIResponse<AddressDto> = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to fetch address');
+      }
+
+      return result.data!;
+    } catch (error) {
+      console.error('Error fetching address by ID:', error);
+      throw error;
+    }
+  }
+
+  // Get all addresses with pagination
+  static async getAllAddresses(limit: number = 10, offset: number = 0): Promise<AddressDto[]> {
+    try {
+      const params = new URLSearchParams({
+        limit: limit.toString(),
+        offset: offset.toString()
+      });
+
+      const response = await fetch(`${ADDRESS_BASE_URL}?${params}`, {
+        method: 'GET',
+        headers: getRequestHeaders(),
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch addresses: ${response.status} ${response.statusText}`);
+      }
+
+      const result: APIResponse<AddressDto[]> = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to fetch addresses');
+      }
+
+      return result.data!;
+    } catch (error) {
+      console.error('Error fetching addresses:', error);
+      throw error;
+    }
+  }
+
+  // Update address
+  static async updateAddress(addressId: string, address: Partial<AddressDto>): Promise<AddressDto> {
+    try {
+      const response = await fetch(`${ADDRESS_BASE_URL}/${addressId}`, {
+        method: 'PUT',
+        headers: getRequestHeaders(),
+        credentials: 'include',
+        body: JSON.stringify(address)
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to update address: ${response.status} ${response.statusText}`);
+      }
+
+      const result: APIResponse<AddressDto> = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to update address');
+      }
+
+      return result.data!;
+    } catch (error) {
+      console.error('Error updating address:', error);
+      throw error;
+    }
+  }
+
+  // Delete address
+  static async deleteAddress(addressId: string): Promise<void> {
+    try {
+      const response = await fetch(`${ADDRESS_BASE_URL}/${addressId}`, {
+        method: 'DELETE',
+        headers: getRequestHeaders(),
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to delete address: ${response.status} ${response.statusText}`);
+      }
+
+      const result: APIResponse = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to delete address');
+      }
+    } catch (error) {
+      console.error('Error deleting address:', error);
+      throw error;
+    }
+  }
+
+  // Search addresses
+  static async searchAddresses(searchParams: {
+    first_name?: string;
+    last_name?: string;
+    city?: string;
+    state?: string;
+  }): Promise<AddressDto[]> {
+    try {
+      const params = new URLSearchParams();
+      Object.entries(searchParams).forEach(([key, value]) => {
+        if (value) {
+          params.append(key, value);
+        }
+      });
+
+      const response = await fetch(`${ADDRESS_BASE_URL}/search?${params}`, {
+        method: 'GET',
+        headers: getRequestHeaders(),
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to search addresses: ${response.status} ${response.statusText}`);
+      }
+
+      const result: APIResponse<AddressDto[]> = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to search addresses');
+      }
+
+      return result.data!;
+    } catch (error) {
+      console.error('Error searching addresses:', error);
+      throw error;
+    }
+  }
+
+  // Get default origin address
+  static async getDefaultOriginAddress(): Promise<AddressDto> {
+    try {
+      const response = await fetch(`${ADDRESS_BASE_URL}/default-origin`, {
+        method: 'GET',
+        headers: getRequestHeaders(),
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error('Default origin address not found');
+        }
+        throw new Error(`Failed to get default origin address: ${response.status} ${response.statusText}`);
+      }
+
+      const result: APIResponse<AddressDto> = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to get default origin address');
+      }
+
+      return result.data!;
+    } catch (error) {
+      console.error('Error getting default origin address:', error);
+      throw error;
+    }
   }
 }

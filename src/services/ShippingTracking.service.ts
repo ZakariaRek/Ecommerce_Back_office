@@ -1,5 +1,17 @@
 import { Shipping_Service_URL } from "../lib/apiEndPoints";
 
+// Enums
+export enum TrackingStatus {
+  PENDING = 'PENDING',
+  PICKED_UP = 'PICKED_UP',
+  IN_TRANSIT = 'IN_TRANSIT',
+  OUT_FOR_DELIVERY = 'OUT_FOR_DELIVERY',
+  DELIVERED = 'DELIVERED',
+  EXCEPTION = 'EXCEPTION',
+  RETURNED = 'RETURNED',
+  CANCELLED = 'CANCELLED'
+}
+
 // Interfaces
 export interface TrackingResponseDto {
   id: string;
@@ -7,19 +19,11 @@ export interface TrackingResponseDto {
   location: string;
   status: string;
   notes?: string;
+  latitude?: number;
+  longitude?: number;
   timestamp: string;
   created_at: string;
-}
-
-export interface TrackingWithShippingResponse {
-  tracking: TrackingResponseDto;
-  shipping: ShippingResponseDto;
-}
-
-export interface TrackingHistoryResponse {
-  shipping_id: string;
-  tracking_history: TrackingResponseDto[];
-  count: number;
+  updated_at: string;
 }
 
 export interface CreateTrackingRequest {
@@ -27,29 +31,41 @@ export interface CreateTrackingRequest {
   location: string;
   status: string;
   notes?: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface AddTrackingUpdateRequest {
   location: string;
   status: string;
   notes?: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface UpdateTrackingLocationRequest {
   location: string;
+  latitude?: number;
+  longitude?: number;
 }
 
-export interface ShippingResponseDto {
-  id: string;
-  order_id: string;
-  status: string;
-  carrier: string;
-  tracking_number: string;
-  estimated_delivery?: string;
-  shipped_date?: string;
-  delivered_date?: string;
-  created_at: string;
-  updated_at: string;
+export interface TrackingWithShippingResponse {
+  tracking: TrackingResponseDto;
+  shipping: {
+    id: string;
+    order_id: string;
+    carrier: string;
+    tracking_number: string;
+    status: string;
+    created_at: string;
+    updated_at: string;
+  };
+}
+
+export interface TrackingHistoryResponse {
+  shipping_id: string;
+  tracking_history: TrackingResponseDto[];
+  count: number;
 }
 
 export interface APIResponse<T = any> {
@@ -59,21 +75,8 @@ export interface APIResponse<T = any> {
   message?: string;
 }
 
-// Common tracking statuses
-export enum TrackingStatus {
-  PACKAGE_RECEIVED = 'Package received',
-  IN_TRANSIT = 'In transit',
-  OUT_FOR_DELIVERY = 'Out for delivery',
-  DELIVERED = 'Delivered',
-  ATTEMPTED_DELIVERY = 'Attempted delivery',
-  RETURNED_TO_SENDER = 'Returned to sender',
-  EXCEPTION = 'Exception',
-  CUSTOMS_CLEARANCE = 'Customs clearance'
-}
-
 // Helper function to get auth token
 const getAuthToken = (): string | null => {
-  // Try to get token from cookies first
   const getCookie = (name: string): string | null => {
     const cookies = document.cookie.split(';');
     for (const cookie of cookies) {
@@ -116,8 +119,8 @@ const getRequestHeaders = (): HeadersInit => {
   };
 };
 
-// Base URL for Tracking endpoints
-const TRACKING_BASE_URL = `${Shipping_Service_URL}/tracking`;
+// Base URL for API endpoints
+const TRACKING_BASE_URL = Shipping_Service_URL + '/tracking';
 
 export class TrackingService {
   
@@ -149,7 +152,7 @@ export class TrackingService {
   }
 
   // Get tracking by ID
-  static async getTrackingById(trackingId: string): Promise<TrackingResponseDto> {
+  static async getTracking(trackingId: string): Promise<TrackingResponseDto> {
     try {
       const response = await fetch(`${TRACKING_BASE_URL}/${trackingId}`, {
         method: 'GET',
@@ -177,112 +180,7 @@ export class TrackingService {
     }
   }
 
-  // Update tracking record
-  static async updateTracking(trackingId: string, tracking: Partial<TrackingResponseDto>): Promise<TrackingResponseDto> {
-    try {
-      const response = await fetch(`${TRACKING_BASE_URL}/${trackingId}`, {
-        method: 'PUT',
-        headers: getRequestHeaders(),
-        credentials: 'include',
-        body: JSON.stringify(tracking)
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to update tracking: ${response.status} ${response.statusText}`);
-      }
-
-      const result: APIResponse<TrackingResponseDto> = await response.json();
-      
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to update tracking');
-      }
-
-      return result.data!;
-    } catch (error) {
-      console.error('Error updating tracking:', error);
-      throw error;
-    }
-  }
-
-  // Delete tracking record
-  static async deleteTracking(trackingId: string): Promise<void> {
-    try {
-      const response = await fetch(`${TRACKING_BASE_URL}/${trackingId}`, {
-        method: 'DELETE',
-        headers: getRequestHeaders(),
-        credentials: 'include'
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to delete tracking: ${response.status} ${response.statusText}`);
-      }
-
-      const result: APIResponse = await response.json();
-      
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to delete tracking');
-      }
-    } catch (error) {
-      console.error('Error deleting tracking:', error);
-      throw error;
-    }
-  }
-
-  // Update tracking location
-  static async updateTrackingLocation(trackingId: string, locationUpdate: UpdateTrackingLocationRequest): Promise<void> {
-    try {
-      const response = await fetch(`${TRACKING_BASE_URL}/${trackingId}/location`, {
-        method: 'PATCH',
-        headers: getRequestHeaders(),
-        credentials: 'include',
-        body: JSON.stringify(locationUpdate)
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to update tracking location: ${response.status} ${response.statusText}`);
-      }
-
-      const result: APIResponse = await response.json();
-      
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to update tracking location');
-      }
-    } catch (error) {
-      console.error('Error updating tracking location:', error);
-      throw error;
-    }
-  }
-
-  // Get tracking with shipping details
-  static async getTrackingWithShipping(trackingId: string): Promise<TrackingWithShippingResponse> {
-    try {
-      const response = await fetch(`${TRACKING_BASE_URL}/${trackingId}/details`, {
-        method: 'GET',
-        headers: getRequestHeaders(),
-        credentials: 'include'
-      });
-
-      if (!response.ok) {
-        if (response.status === 404) {
-          throw new Error('Tracking record not found');
-        }
-        throw new Error(`Failed to fetch tracking details: ${response.status} ${response.statusText}`);
-      }
-
-      const result: APIResponse<TrackingWithShippingResponse> = await response.json();
-      
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to fetch tracking details');
-      }
-
-      return result.data!;
-    } catch (error) {
-      console.error('Error fetching tracking with shipping:', error);
-      throw error;
-    }
-  }
-
-  // Get tracking history for shipping
+  // Get tracking history for a shipping
   static async getTrackingHistory(shippingId: string): Promise<TrackingHistoryResponse> {
     try {
       const response = await fetch(`${TRACKING_BASE_URL}/shipping/${shippingId}`, {
@@ -293,7 +191,7 @@ export class TrackingService {
 
       if (!response.ok) {
         if (response.status === 404) {
-          throw new Error('Shipping not found');
+          throw new Error('No tracking history found for this shipping');
         }
         throw new Error(`Failed to fetch tracking history: ${response.status} ${response.statusText}`);
       }
@@ -311,14 +209,14 @@ export class TrackingService {
     }
   }
 
-  // Add tracking update for existing shipping
-  static async addTrackingUpdate(shippingId: string, updateRequest: AddTrackingUpdateRequest): Promise<TrackingResponseDto> {
+  // Add tracking update to existing shipping
+  static async addTrackingUpdate(shippingId: string, request: AddTrackingUpdateRequest): Promise<TrackingResponseDto> {
     try {
       const response = await fetch(`${TRACKING_BASE_URL}/shipping/${shippingId}`, {
         method: 'POST',
         headers: getRequestHeaders(),
         credentials: 'include',
-        body: JSON.stringify(updateRequest)
+        body: JSON.stringify(request)
       });
 
       if (!response.ok) {
@@ -349,7 +247,7 @@ export class TrackingService {
 
       if (!response.ok) {
         if (response.status === 404) {
-          throw new Error('No tracking records found for this shipping');
+          throw new Error('No tracking found for this shipping');
         }
         throw new Error(`Failed to fetch latest tracking: ${response.status} ${response.statusText}`);
       }
@@ -367,16 +265,108 @@ export class TrackingService {
     }
   }
 
-  // Check if tracking exists
-  static async trackingExists(trackingId: string): Promise<boolean> {
+  // Get tracking with shipping details
+  static async getTrackingWithShipping(trackingId: string): Promise<TrackingWithShippingResponse> {
     try {
-      await this.getTrackingById(trackingId);
-      return true;
-    } catch (error) {
-      if (error instanceof Error && error.message === 'Tracking record not found') {
-        return false;
+      const response = await fetch(`${TRACKING_BASE_URL}/${trackingId}/details`, {
+        method: 'GET',
+        headers: getRequestHeaders(),
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error('Tracking record not found');
+        }
+        throw new Error(`Failed to fetch tracking details: ${response.status} ${response.statusText}`);
       }
-      throw error; // Re-throw other errors
+
+      const result: APIResponse<TrackingWithShippingResponse> = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to fetch tracking details');
+      }
+
+      return result.data!;
+    } catch (error) {
+      console.error('Error fetching tracking details:', error);
+      throw error;
+    }
+  }
+
+  // Update tracking
+  static async updateTracking(trackingId: string, tracking: Partial<TrackingResponseDto>): Promise<TrackingResponseDto> {
+    try {
+      const response = await fetch(`${TRACKING_BASE_URL}/${trackingId}`, {
+        method: 'PUT',
+        headers: getRequestHeaders(),
+        credentials: 'include',
+        body: JSON.stringify(tracking)
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to update tracking: ${response.status} ${response.statusText}`);
+      }
+
+      const result: APIResponse<TrackingResponseDto> = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to update tracking');
+      }
+
+      return result.data!;
+    } catch (error) {
+      console.error('Error updating tracking:', error);
+      throw error;
+    }
+  }
+
+  // Update tracking location
+  static async updateTrackingLocation(trackingId: string, locationUpdate: UpdateTrackingLocationRequest): Promise<void> {
+    try {
+      const response = await fetch(`${TRACKING_BASE_URL}/${trackingId}/location`, {
+        method: 'PATCH',
+        headers: getRequestHeaders(),
+        credentials: 'include',
+        body: JSON.stringify(locationUpdate)
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to update tracking location: ${response.status} ${response.statusText}`);
+      }
+
+      const result: APIResponse = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to update tracking location');
+      }
+    } catch (error) {
+      console.error('Error updating tracking location:', error);
+      throw error;
+    }
+  }
+
+  // Delete tracking
+  static async deleteTracking(trackingId: string): Promise<void> {
+    try {
+      const response = await fetch(`${TRACKING_BASE_URL}/${trackingId}`, {
+        method: 'DELETE',
+        headers: getRequestHeaders(),
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to delete tracking: ${response.status} ${response.statusText}`);
+      }
+
+      const result: APIResponse = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to delete tracking');
+      }
+    } catch (error) {
+      console.error('Error deleting tracking:', error);
+      throw error;
     }
   }
 
@@ -392,88 +382,105 @@ export class TrackingService {
   }
 
   static formatLocation(location: string): string {
-    return location.replace(/\b\w/g, l => l.toUpperCase());
+    return location.replace(/,/g, ', ').replace(/\s+/g, ' ').trim();
   }
 
   static getStatusDisplayName(status: string): string {
-    return status.replace(/\b\w/g, l => l.toUpperCase());
+    switch (status.toUpperCase()) {
+      case 'PENDING':
+        return 'Pending';
+      case 'PICKED_UP':
+        return 'Picked Up';
+      case 'IN_TRANSIT':
+        return 'In Transit';
+      case 'OUT_FOR_DELIVERY':
+        return 'Out for Delivery';
+      case 'DELIVERED':
+        return 'Delivered';
+      case 'EXCEPTION':
+        return 'Exception';
+      case 'RETURNED':
+        return 'Returned';
+      case 'CANCELLED':
+        return 'Cancelled';
+      default:
+        return status;
+    }
   }
 
   static getStatusColor(status: string): string {
-    const normalizedStatus = status.toLowerCase();
-    
-    if (normalizedStatus.includes('delivered')) return '#008000'; // Green
-    if (normalizedStatus.includes('out for delivery')) return '#FF6347'; // Tomato
-    if (normalizedStatus.includes('in transit')) return '#4169E1'; // RoyalBlue
-    if (normalizedStatus.includes('received')) return '#32CD32'; // LimeGreen
-    if (normalizedStatus.includes('exception') || normalizedStatus.includes('failed')) return '#DC143C'; // Crimson
-    if (normalizedStatus.includes('attempted')) return '#FFA500'; // Orange
-    if (normalizedStatus.includes('returned')) return '#8B4513'; // SaddleBrown
-    if (normalizedStatus.includes('customs')) return '#9370DB'; // MediumPurple
-    
-    return '#666666'; // Default gray
+    switch (status.toUpperCase()) {
+      case 'PENDING':
+        return '#FFA500'; // Orange
+      case 'PICKED_UP':
+        return '#1E90FF'; // DodgerBlue
+      case 'IN_TRANSIT':
+        return '#4169E1'; // RoyalBlue
+      case 'OUT_FOR_DELIVERY':
+        return '#FF6347'; // Tomato
+      case 'DELIVERED':
+        return '#008000'; // Green
+      case 'EXCEPTION':
+        return '#DC143C'; // Crimson
+      case 'RETURNED':
+        return '#8B4513'; // SaddleBrown
+      case 'CANCELLED':
+        return '#696969'; // DimGray
+      default:
+        return '#666666'; // Gray
+    }
   }
 
   static getStatusIcon(status: string): string {
-    const normalizedStatus = status.toLowerCase();
-    
-    if (normalizedStatus.includes('delivered')) return '✅';
-    if (normalizedStatus.includes('out for delivery')) return '🚐';
-    if (normalizedStatus.includes('in transit')) return '🚚';
-    if (normalizedStatus.includes('received')) return '📦';
-    if (normalizedStatus.includes('exception') || normalizedStatus.includes('failed')) return '❌';
-    if (normalizedStatus.includes('attempted')) return '🔄';
-    if (normalizedStatus.includes('returned')) return '↩️';
-    if (normalizedStatus.includes('customs')) return '🛃';
-    
-    return '📍'; // Default location pin
-  }
-
-  static isDeliveryStatus(status: string): boolean {
-    return status.toLowerCase().includes('delivered');
-  }
-
-  static isFailureStatus(status: string): boolean {
-    const normalizedStatus = status.toLowerCase();
-    return normalizedStatus.includes('exception') || 
-           normalizedStatus.includes('failed') || 
-           normalizedStatus.includes('returned');
-  }
-
-  static isInTransitStatus(status: string): boolean {
-    const normalizedStatus = status.toLowerCase();
-    return normalizedStatus.includes('in transit') || 
-           normalizedStatus.includes('out for delivery');
+    switch (status.toUpperCase()) {
+      case 'PENDING':
+        return '⏳';
+      case 'PICKED_UP':
+        return '📦';
+      case 'IN_TRANSIT':
+        return '🚛';
+      case 'OUT_FOR_DELIVERY':
+        return '🚐';
+      case 'DELIVERED':
+        return '✅';
+      case 'EXCEPTION':
+        return '⚠️';
+      case 'RETURNED':
+        return '↩️';
+      case 'CANCELLED':
+        return '❌';
+      default:
+        return '📋';
+    }
   }
 
   // Search and filter utilities
-  static searchTrackingHistory(tracking: TrackingResponseDto[], searchTerm: string): TrackingResponseDto[] {
-    if (!searchTerm.trim()) return tracking;
+  static searchTrackingHistory(trackingHistory: TrackingResponseDto[], searchTerm: string): TrackingResponseDto[] {
+    if (!searchTerm.trim()) return trackingHistory;
     
     const term = searchTerm.toLowerCase();
-    return tracking.filter(record => 
-      record.location.toLowerCase().includes(term) ||
-      record.status.toLowerCase().includes(term) ||
-      (record.notes && record.notes.toLowerCase().includes(term))
+    return trackingHistory.filter(tracking => 
+      tracking.location.toLowerCase().includes(term) ||
+      tracking.status.toLowerCase().includes(term) ||
+      (tracking.notes && tracking.notes.toLowerCase().includes(term)) ||
+      tracking.id.toLowerCase().includes(term)
     );
   }
 
-  static filterTrackingByStatus(tracking: TrackingResponseDto[], status: string | 'all'): TrackingResponseDto[] {
-    if (status === 'all') return tracking;
-    return tracking.filter(record => record.status.toLowerCase().includes(status.toLowerCase()));
+  static filterTrackingByStatus(trackingHistory: TrackingResponseDto[], status: string): TrackingResponseDto[] {
+    return trackingHistory.filter(tracking => tracking.status === status);
   }
 
-  static filterTrackingByLocation(tracking: TrackingResponseDto[], location: string | 'all'): TrackingResponseDto[] {
-    if (location === 'all') return tracking;
-    return tracking.filter(record => record.location.toLowerCase().includes(location.toLowerCase()));
+  static filterTrackingByLocation(trackingHistory: TrackingResponseDto[], location: string): TrackingResponseDto[] {
+    return trackingHistory.filter(tracking => tracking.location.includes(location));
   }
 
   static sortTracking(
-    tracking: TrackingResponseDto[], 
-    sortBy: 'timestamp' | 'location' | 'status' | 'created_at',
+    trackingHistory: TrackingResponseDto[], 
+    sortBy: 'timestamp' | 'created_at' | 'status' | 'location',
     order: 'asc' | 'desc' = 'desc'
   ): TrackingResponseDto[] {
-    return [...tracking].sort((a, b) => {
+    return [...trackingHistory].sort((a, b) => {
       let aValue: any;
       let bValue: any;
 
@@ -486,13 +493,13 @@ export class TrackingService {
           aValue = new Date(a.created_at).getTime();
           bValue = new Date(b.created_at).getTime();
           break;
-        case 'location':
-          aValue = a.location.toLowerCase();
-          bValue = b.location.toLowerCase();
-          break;
         case 'status':
           aValue = a.status.toLowerCase();
           bValue = b.status.toLowerCase();
+          break;
+        case 'location':
+          aValue = a.location.toLowerCase();
+          bValue = b.location.toLowerCase();
           break;
         default:
           return 0;
@@ -505,46 +512,44 @@ export class TrackingService {
   }
 
   // Get tracking statistics
-  static getTrackingStats(tracking: TrackingResponseDto[]): {
+  static getTrackingStats(trackingHistory: TrackingResponseDto[]): {
     total: number;
     byStatus: Record<string, number>;
     byLocation: Record<string, number>;
-    timeRange: { earliest: string; latest: string } | null;
+    timeRange?: { earliest: string; latest: string };
   } {
     const stats = {
-      total: tracking.length,
+      total: trackingHistory.length,
       byStatus: {} as Record<string, number>,
-      byLocation: {} as Record<string, number>,
-      timeRange: null as { earliest: string; latest: string } | null
+      byLocation: {} as Record<string, number>
     };
 
-    if (tracking.length === 0) {
+    if (trackingHistory.length === 0) {
       return stats;
     }
 
     // Count by status and location
-    const timestamps: number[] = [];
-    tracking.forEach(record => {
-      stats.byStatus[record.status] = (stats.byStatus[record.status] || 0) + 1;
-      stats.byLocation[record.location] = (stats.byLocation[record.location] || 0) + 1;
-      timestamps.push(new Date(record.timestamp).getTime());
+    trackingHistory.forEach(tracking => {
+      stats.byStatus[tracking.status] = (stats.byStatus[tracking.status] || 0) + 1;
+      stats.byLocation[tracking.location] = (stats.byLocation[tracking.location] || 0) + 1;
     });
 
     // Calculate time range
-    const minTime = Math.min(...timestamps);
-    const maxTime = Math.max(...timestamps);
-    stats.timeRange = {
-      earliest: new Date(minTime).toISOString(),
-      latest: new Date(maxTime).toISOString()
-    };
+    const timestamps = trackingHistory.map(t => new Date(t.timestamp).getTime()).sort();
+    if (timestamps.length > 0) {
+      (stats as any).timeRange = {
+        earliest: new Date(timestamps[0]).toISOString(),
+        latest: new Date(timestamps[timestamps.length - 1]).toISOString()
+      };
+    }
 
     return stats;
   }
 
   // Get common locations
-  static getCommonLocations(tracking: TrackingResponseDto[]): string[] {
-    const locationCounts = tracking.reduce((acc, record) => {
-      acc[record.location] = (acc[record.location] || 0) + 1;
+  static getCommonLocations(trackingHistory: TrackingResponseDto[]): string[] {
+    const locationCounts = trackingHistory.reduce((acc, tracking) => {
+      acc[tracking.location] = (acc[tracking.location] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
 
@@ -553,31 +558,26 @@ export class TrackingService {
       .map(([location]) => location);
   }
 
-  // Get tracking timeline
-  static getTrackingTimeline(tracking: TrackingResponseDto[]): TrackingResponseDto[] {
-    return this.sortTracking(tracking, 'timestamp', 'asc');
-  }
-
-  // Calculate delivery time estimate
-  static estimateDeliveryTime(tracking: TrackingResponseDto[]): string | null {
-    const timeline = this.getTrackingTimeline(tracking);
-    
-    if (timeline.length < 2) {
-      return null;
-    }
-
-    // Simple estimation based on average time between updates
-    const intervals: number[] = [];
-    for (let i = 1; i < timeline.length; i++) {
-      const current = new Date(timeline[i].timestamp).getTime();
-      const previous = new Date(timeline[i - 1].timestamp).getTime();
-      intervals.push(current - previous);
-    }
-
-    const averageInterval = intervals.reduce((sum, interval) => sum + interval, 0) / intervals.length;
-    const lastUpdate = new Date(timeline[timeline.length - 1].timestamp).getTime();
-    const estimatedDelivery = new Date(lastUpdate + averageInterval * 2); // Estimate 2 more intervals
-
-    return estimatedDelivery.toISOString();
+  // Get coordinates from tracking history
+  static getTrackingCoordinates(trackingHistory: TrackingResponseDto[]): Array<{
+    id: string;
+    location: string;
+    latitude: number;
+    longitude: number;
+    status: string;
+    timestamp: string;
+    notes?: string;
+  }> {
+    return trackingHistory
+      .filter(tracking => tracking.latitude && tracking.longitude)
+      .map(tracking => ({
+        id: tracking.id,
+        location: tracking.location,
+        latitude: tracking.latitude!,
+        longitude: tracking.longitude!,
+        status: tracking.status,
+        timestamp: tracking.timestamp,
+        notes: tracking.notes
+      }));
   }
 }
