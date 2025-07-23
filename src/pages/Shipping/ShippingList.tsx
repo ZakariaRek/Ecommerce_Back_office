@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   ShippingService, 
   ShippingResponseDto, 
@@ -7,7 +7,7 @@ import {
   PaginatedShippingResponse 
 } from '../../services/Shipping.service';
 
-// Modern shipping-themed styles with glassmorphism
+// Modern shipping-themed styles with glassmorphism and map styling
 const modernStyles = `
   .custom-scrollbar::-webkit-scrollbar {
     width: 8px;
@@ -84,6 +84,178 @@ const modernStyles = `
   }
 `;
 
+// Leaflet Map Component with API data
+const LeafletMap = ({ shippings, selectedShipping, onMarkerClick }: {
+  shippings: ShippingResponseDto[];
+  selectedShipping: string | null;
+  onMarkerClick: (id: string) => void;
+}) => {
+  const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<any>(null);
+  const markersRef = useRef<any[]>([]);
+
+  useEffect(() => {
+    // Load Leaflet CSS and JS
+    if (!document.querySelector('link[href*="leaflet"]')) {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css';
+      document.head.appendChild(link);
+    }
+
+    if (!window.L) {
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
+      script.onload = initializeMap;
+      document.head.appendChild(script);
+    } else {
+      initializeMap();
+    }
+
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (mapInstanceRef.current) {
+      updateMarkers();
+    }
+  }, [shippings, selectedShipping]);
+
+  const initializeMap = () => {
+    if (!mapRef.current || !window.L) return;
+
+    // Initialize map centered on US
+    mapInstanceRef.current = window.L.map(mapRef.current).setView([39.8283, -98.5795], 4);
+
+    // Add tile layer
+    window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(mapInstanceRef.current);
+
+    updateMarkers();
+  };
+
+  const updateMarkers = () => {
+    if (!mapInstanceRef.current || !window.L) return;
+
+    // Clear existing markers
+    markersRef.current.forEach(marker => mapInstanceRef.current.removeLayer(marker));
+    markersRef.current = [];
+
+    // Add markers for shipments with coordinates
+    shippings.forEach(shipping => {
+      if (shipping.current_latitude && shipping.current_longitude) {
+        const isSelected = selectedShipping === shipping.id;
+        
+        // Create custom icon based on status
+        const iconColor = ShippingService.getStatusColor(shipping.status);
+        const iconHtml = `
+          <div style="
+            background-color: ${iconColor};
+            width: ${isSelected ? '32px' : '24px'};
+            height: ${isSelected ? '32px' : '24px'};
+            border-radius: 50%;
+            border: 3px solid white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: ${isSelected ? '16px' : '12px'};
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            ${isSelected ? 'transform: scale(1.2);' : ''}
+          ">
+            ${ShippingService.getStatusIcon(shipping.status)}
+          </div>
+        `;
+
+        const customIcon = window.L.divIcon({
+          html: iconHtml,
+          className: 'custom-marker',
+          iconSize: [isSelected ? 32 : 24, isSelected ? 32 : 24],
+          iconAnchor: [isSelected ? 16 : 12, isSelected ? 16 : 12]
+        });
+
+        const marker = window.L.marker(
+          [shipping.current_latitude, shipping.current_longitude],
+          { icon: customIcon }
+        ).addTo(mapInstanceRef.current);
+
+        // Add popup
+        const popupContent = `
+          <div style="min-width: 200px;">
+            <h3 style="margin: 0 0 8px 0; color: #1f2937; font-size: 16px; font-weight: bold;">
+              Order #${shipping.order_id}
+            </h3>
+            <div style="margin-bottom: 8px;">
+              <span style="display: inline-block; padding: 4px 8px; background-color: ${iconColor}20; color: ${iconColor}; border-radius: 12px; font-size: 12px; font-weight: 500;">
+                ${ShippingService.getStatusDisplayName(shipping.status)}
+              </span>
+            </div>
+            <p style="margin: 4px 0; color: #6b7280; font-size: 14px;">
+              <strong>Carrier:</strong> ${shipping.carrier}
+            </p>
+            <p style="margin: 4px 0; color: #6b7280; font-size: 14px;">
+              <strong>Tracking:</strong> ${shipping.tracking_number}
+            </p>
+            ${shipping.tracking_history && shipping.tracking_history.length > 0 ? `
+              <p style="margin: 4px 0; color: #6b7280; font-size: 14px;">
+                <strong>Location:</strong> ${shipping.tracking_history[shipping.tracking_history.length - 1].location}
+              </p>
+            ` : ''}
+          </div>
+        `;
+
+        marker.bindPopup(popupContent);
+
+        // Add click handler
+        marker.on('click', () => {
+          onMarkerClick(shipping.id);
+        });
+
+        markersRef.current.push(marker);
+
+        // Draw route if tracking history exists
+        if (shipping.tracking_history && shipping.tracking_history.length > 1) {
+          const routePoints = shipping.tracking_history
+            .filter(h => h.latitude && h.longitude)
+            .map(h => [h.latitude!, h.longitude!]);
+
+          if (routePoints.length > 1) {
+            const polyline = window.L.polyline(routePoints, {
+              color: iconColor,
+              weight: isSelected ? 4 : 2,
+              opacity: isSelected ? 0.8 : 0.6,
+              dashArray: isSelected ? '5, 5' : '10, 10'
+            }).addTo(mapInstanceRef.current);
+
+            markersRef.current.push(polyline);
+          }
+        }
+      }
+    });
+
+    // Fit map to show all markers if there are any
+    if (markersRef.current.length > 0) {
+      const group = new window.L.featureGroup(markersRef.current);
+      mapInstanceRef.current.fitBounds(group.getBounds().pad(0.1));
+    }
+  };
+
+  return (
+    <div 
+      ref={mapRef} 
+      className="w-full h-full rounded-xl"
+      style={{ minHeight: '500px' }}
+    />
+  );
+};
+
 // Modern input components with shipping theme
 const Input = ({ type, value, onChange, placeholder, className }: {
   type: string;
@@ -131,6 +303,8 @@ const ShippingManagement: React.FC = () => {
   const [pagination, setPagination] = useState({ limit: 10, offset: 0, total: 0 });
   const [selectedShipping, setSelectedShipping] = useState<ShippingResponseDto | null>(null);
   const [showTrackingModal, setShowTrackingModal] = useState(false);
+  const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
+  const [selectedMapShipping, setSelectedMapShipping] = useState<string | null>(null);
 
   // Create shipping form state
   const [createForm, setCreateForm] = useState<CreateShippingRequest>({
@@ -162,7 +336,36 @@ const ShippingManagement: React.FC = () => {
         pagination.limit, 
         pagination.offset
       );
-      setShippings(result.shippings);
+      
+      console.log('Initial shipments loaded (without tracking):', result.shippings.length);
+      
+      // Fetch full details (including tracking history) for each shipment that has GPS coordinates
+      const shippingsWithTracking = await Promise.all(
+        result.shippings.map(async (shipping) => {
+          if (shipping.current_latitude && shipping.current_longitude) {
+            try {
+              console.log(`Fetching full details for shipping ${shipping.id} with GPS coordinates`);
+              // Use getShippingById to get full details including tracking_history
+              const fullShippingData = await ShippingService.getShippingById(shipping.id);
+              console.log(`Fetched tracking history for ${shipping.id}:`, fullShippingData.tracking_history?.length || 0, 'records');
+              return fullShippingData;
+            } catch (error) {
+              console.log(`Could not fetch full details for ${shipping.id}:`, error);
+              return shipping; // Return original data if fetch fails
+            }
+          }
+          return shipping; // Return as-is if no GPS coordinates
+        })
+      );
+      
+      console.log('Final shipments with tracking loaded:', shippingsWithTracking.map(s => ({
+        id: s.id,
+        order_id: s.order_id,
+        hasGPS: !!(s.current_latitude && s.current_longitude),
+        trackingCount: s.tracking_history?.length || 0
+      })));
+
+      setShippings(shippingsWithTracking);
       setPagination(prev => ({ ...prev, total: result.pagination.count }));
       setError(null);
     } catch (err) {
@@ -172,8 +375,7 @@ const ShippingManagement: React.FC = () => {
     }
   };
 
-  const handleCreateShipping = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleCreateShipping = async () => {
     try {
       await ShippingService.createShipping(createForm);
       setShowCreateModal(false);
@@ -248,6 +450,11 @@ const ShippingManagement: React.FC = () => {
       setPagination(prev => ({ ...prev, offset: Math.max(0, prev.offset - prev.limit) }));
     }
   };
+
+  // Get shipments with location data for map
+  const shippingsWithLocationData = filteredShippings.filter(shipping => 
+    shipping.current_latitude && shipping.current_longitude && shipping.tracking_history?.length
+  );
 
   const renderShippingCard = (shipping: ShippingResponseDto, index: number) => {
     const animationClass = index % 2 === 0 ? 'animate-slideInLeft' : 'animate-slideInRight';
@@ -437,7 +644,7 @@ const ShippingManagement: React.FC = () => {
                       📦 Shipping Management
                     </h1>
                     <p className="text-lg text-amber-100 max-w-md">
-                      Track and manage shipments across all carriers with real-time updates
+                      Track and manage shipments across all carriers with real-time updates and interactive mapping
                     </p>
                   </div>
                   <div className="flex items-center gap-4">
@@ -518,7 +725,8 @@ const ShippingManagement: React.FC = () => {
 
         {/* Controls Section */}
         <div className="glass-card rounded-xl p-6">
-          <div className="flex flex-col lg:flex-row lg:items-center space-y-4 lg:space-y-0 lg:space-x-6">
+          <div className="flex flex-col space-y-4">
+            {/* Top Row - Search */}
             <div className="flex-1">
               <div className="relative">
                 <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -534,57 +742,128 @@ const ShippingManagement: React.FC = () => {
               </div>
             </div>
             
-            <div className="flex space-x-4">
-              <Select
-                options={[
-                  { value: 'all', label: 'All Statuses' },
-                  ...Object.values(ShippingStatus).map(status => ({
-                    value: status,
-                    label: ShippingService.getStatusDisplayName(status)
-                  }))
-                ]}
-                value={statusFilter as string}
-                onChange={(value) => setStatusFilter(value as ShippingStatus | 'all')}
-                className="min-w-[160px]"
-              />
-              
-              <Select
-                options={[
-                  { value: 'all', label: 'All Carriers' },
-                  ...carriers.map(carrier => ({ value: carrier, label: carrier }))
-                ]}
-                value={carrierFilter}
-                onChange={(value) => setCarrierFilter(value)}
-                className="min-w-[160px]"
-              />
+            {/* Bottom Row - Filters and View Toggle */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0 sm:space-x-4">
+              <div className="flex space-x-4">
+                <Select
+                  options={[
+                    { value: 'all', label: 'All Statuses' },
+                    ...Object.values(ShippingStatus).map(status => ({
+                      value: status,
+                      label: ShippingService.getStatusDisplayName(status)
+                    }))
+                  ]}
+                  value={statusFilter as string}
+                  onChange={(value) => setStatusFilter(value as ShippingStatus | 'all')}
+                  className="min-w-[160px]"
+                />
+                
+                <Select
+                  options={[
+                    { value: 'all', label: 'All Carriers' },
+                    ...carriers.map(carrier => ({ value: carrier, label: carrier }))
+                  ]}
+                  value={carrierFilter}
+                  onChange={(value) => setCarrierFilter(value)}
+                  className="min-w-[160px]"
+                />
+              </div>
+
+              {/* View Mode Toggle */}
+              <div className="flex bg-white dark:bg-gray-800 border-2 border-amber-200 dark:border-amber-600 rounded-lg overflow-hidden shadow-sm">
+                <button
+                  type="button"
+                  onClick={() => setViewMode('list')}
+                  className={`px-6 py-3 text-sm font-medium transition-all duration-200 flex items-center gap-2 border-0 outline-none focus:outline-none ${
+                    viewMode === 'list' 
+                      ? 'bg-amber-500 text-white shadow-md' 
+                      : 'text-gray-600 dark:text-gray-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 bg-transparent'
+                  }`}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                  </svg>
+                  List
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode('map')}
+                  className={`px-6 py-3 text-sm font-medium transition-all duration-200 flex items-center gap-2 border-0 outline-none focus:outline-none ${
+                    viewMode === 'map' 
+                      ? 'bg-amber-500 text-white shadow-md' 
+                      : 'text-gray-600 dark:text-gray-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 bg-transparent'
+                  }`}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                  </svg>
+                  Map
+                </button>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Shipments List */}
-        <div className="space-y-4">
-          {filteredShippings.length === 0 && !loading ? (
-            <div className="glass-card rounded-xl p-12 text-center">
-              <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-amber-100 to-orange-100 dark:from-amber-900/30 dark:to-orange-900/30 rounded-full flex items-center justify-center">
-                <span className="text-4xl">📦</span>
+        {/* Content Area - Map or List View */}
+        {viewMode === 'map' ? (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
+                🗺️ Shipment Tracking Map
+              </h2>
+              <div className="text-sm text-gray-600 dark:text-gray-400">
+                {shippingsWithLocationData.length} of {filteredShippings.length} shipments with location data
               </div>
-              <h3 className="text-2xl font-bold text-gray-800 dark:text-white mb-3">No Shipments Found</h3>
-              <p className="text-gray-600 dark:text-gray-400 mb-8 max-w-md mx-auto">
-                {searchTerm || statusFilter !== 'all' || carrierFilter !== 'all'
-                  ? 'No shipments match your current search criteria. Try adjusting your filters.' 
-                  : 'No shipments have been created yet. Create your first shipment to get started.'}
-              </p>
             </div>
-          ) : (
-            <div className="space-y-4">
-              {filteredShippings.map((shipping, index) => renderShippingCard(shipping, index))}
+            
+            <div className="glass-card rounded-xl overflow-hidden" style={{ height: '600px' }}>
+              {shippingsWithLocationData.length > 0 ? (
+                <LeafletMap 
+                  shippings={shippingsWithLocationData}
+                  selectedShipping={selectedMapShipping}
+                  onMarkerClick={(id) => setSelectedMapShipping(selectedMapShipping === id ? null : id)}
+                />
+              ) : (
+                <div className="h-full flex items-center justify-center">
+                  <div className="text-center">
+                    <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-amber-100 to-orange-100 dark:from-amber-900/30 dark:to-orange-900/30 rounded-full flex items-center justify-center">
+                      <span className="text-4xl">🗺️</span>
+                    </div>
+                    <h3 className="text-2xl font-bold text-gray-800 dark:text-white mb-3">No Location Data Available</h3>
+                    <p className="text-gray-600 dark:text-gray-400 max-w-md mx-auto">
+                      No shipments have location data to display on the map. Shipments need GPS coordinates and tracking history to appear on the map.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          </div>
+        ) : (
+          /* Shipments List */
+          <div className="space-y-4">
+            {filteredShippings.length === 0 && !loading ? (
+              <div className="glass-card rounded-xl p-12 text-center">
+                <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-amber-100 to-orange-100 dark:from-amber-900/30 dark:to-orange-900/30 rounded-full flex items-center justify-center">
+                  <span className="text-4xl">📦</span>
+                </div>
+                <h3 className="text-2xl font-bold text-gray-800 dark:text-white mb-3">No Shipments Found</h3>
+                <p className="text-gray-600 dark:text-gray-400 mb-8 max-w-md mx-auto">
+                  {searchTerm || statusFilter !== 'all' || carrierFilter !== 'all'
+                    ? 'No shipments match your current search criteria. Try adjusting your filters.' 
+                    : 'No shipments have been created yet. Create your first shipment to get started.'}
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {filteredShippings.map((shipping, index) => renderShippingCard(shipping, index))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Pagination */}
-        {filteredShippings.length > 0 && (
-          <div className="glass-card rounded-xl p-4 flex items-center justify-between">
+        {filteredShippings.length > 0 && viewMode === 'list' && (
+          <div className="glass-card rounded-xl p-4 flex items-center justify-between relative z-0">
             <button 
               onClick={prevPage} 
               disabled={pagination.offset === 0}
@@ -638,7 +917,7 @@ const ShippingManagement: React.FC = () => {
               </div>
             </div>
             
-            <form onSubmit={handleCreateShipping} className="p-6 space-y-4">
+            <div className="p-6 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Order ID
@@ -677,13 +956,13 @@ const ShippingManagement: React.FC = () => {
                   Cancel
                 </button>
                 <button 
-                  type="submit" 
+                  onClick={handleCreateShipping}
                   className="flex-1 px-4 py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-medium rounded-xl transition-all duration-200 shadow-lg"
                 >
                   Create Shipment
                 </button>
               </div>
-            </form>
+            </div>
           </div>
         </div>
       )}
