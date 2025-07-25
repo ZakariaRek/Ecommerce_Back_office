@@ -1,4 +1,4 @@
-// src/App.tsx
+// src/App.tsx - Updated with Analytics and Payment Management routes
 import { BrowserRouter as Router, Routes, Route } from "react-router";
 import SignIn from "./pages/AuthPages/SignIn";
 import SignUp from "./pages/AuthPages/SignUp";
@@ -44,6 +44,10 @@ import CreateTierBenefitWizard from "./pages/CRMFormes/CreateTierBenefitWizard";
 import ShippingManagement from "./pages/Shipping/ShippingList";
 import TrackingManagement from "./pages/Shipping/shippingTrakicng";
 
+// Import the new Analytics and Payment Management pages
+import AnalyticsDashboard from "./pages/Analytics/AnalyticsDashboard";
+import PaymentManagement from "./pages/Payment/PaymentManagement";
+
 export default function App() {
   return (
     <AuthProvider>
@@ -66,7 +70,7 @@ export default function App() {
             {/* Dashboard */}
             <Route path="/dashboard" element={<Home />} />
 
-             {/* Users */}
+            {/* Users */}
             <Route path="/user-list" element={<UserList />} />
             <Route path="/Create-user" element={<SignupComponent />} />
 
@@ -83,42 +87,37 @@ export default function App() {
             <Route path="/calendar" element={<Calendar />} />  
 
             {/* Inventory */}
-
-
             <Route path="/inventory" element={<InventoryTable />} />
             <Route path="/inventory/create" element={<CreateInventoryPage />} />
             <Route path="/inventory/edit/:id" element={<EditInventoryPage />} />
+            
             {/* Order */} 
-                 <Route path="/order" element={<OrderList />} />
-
-
+            <Route path="/order" element={<OrderList />} />
 
             {/* CRM */}
             <Route path="/crm" element={<CRMUsersList />} />
-              <Route path="/crm-Point-Transactions" element={<TransactionsList />} />
-                <Route path="/crm-CouponsList" element={<CouponsList />} />
-                 <Route path="/crm-LoyaltyDashboard" element={<LoyaltyDashboard />} />
-                  <Route path="/crm-CreateTierBenefit" element={<CreateTierBenefitWizard />} />
+            <Route path="/crm-Point-Transactions" element={<TransactionsList />} />
+            <Route path="/crm-CouponsList" element={<CouponsList />} />
+            <Route path="/crm-LoyaltyDashboard" element={<LoyaltyDashboard />} />
+            <Route path="/crm-CreateTierBenefit" element={<CreateTierBenefitWizard />} />
+            
             {/* Shipping */}
+            <Route path="/Shipping" element={<ShippingManagement />} />
+            <Route path="/Shipping-tracking" element={<TrackingManagement />} />
 
-                        <Route path="/Shipping" element={<ShippingManagement />} />
-                          <Route path="/Shipping-tracking" element={<TrackingManagement />} />
+            {/* Analytics & Reporting - NEW SECTION */}
+            <Route path="/analytics-dashboard" element={<AnalyticsDashboard />} />
+            <Route path="/payment-management" element={<PaymentManagement />} />
 
-            
-            
+            {/* Admin Management */}
+            <Route path="/backend-monitoring" element={<MonitoringDashboard />} />
+            <Route path="/rate-limiting" element={<RateLimitingDashboard />} />
 
-
-
-
-
-
+            {/* Other Pages */}
             <Route path="/blank" element={<Blank />} />
 
             {/* Forms */}
             <Route path="/form-elements" element={<FormElements />} />
-
-            <Route path="/backend-monitoring" element={<MonitoringDashboard />} />
-            <Route path="/rate-limiting" element={<RateLimitingDashboard />} />
 
             {/* Tables */}
             <Route path="/basic-tables" element={<BasicTables />} />
