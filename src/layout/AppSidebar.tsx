@@ -1,3 +1,4 @@
+// src/layout/AppSidebar.tsx - Updated with Analytics & Payment Management sections
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router";
 
@@ -33,24 +34,15 @@ const navItems: NavItem[] = [
   {
     icon: <CalenderIcon />,
     name: "Product",
-
     subItems: [
-      
       { name: "Product List", path: "/product", pro: false },
       { name: "Inventory List", path: "/inventory", pro: false },
-    
-      { name: "Add Product",path: "/product-form", pro: false },
-      { name: "Supplier List",path: "/Supplier", pro: false },
-      { name: "Add Supplier",path: "/Supplier-form", pro: false },
-      { name: "Categorie List",path: "/Categorie", pro: false },
-      { name: "Add Categorie",path: "/Categorie-form", pro: false },
-
-
-
-
+      { name: "Add Product", path: "/product-form", pro: false },
+      { name: "Supplier List", path: "/Supplier", pro: false },
+      { name: "Add Supplier", path: "/Supplier-form", pro: false },
+      { name: "Categorie List", path: "/Categorie", pro: false },
+      { name: "Add Categorie", path: "/Categorie-form", pro: false },
     ],
-  
-
   },
   {
     icon: <CalenderIcon />,
@@ -60,38 +52,62 @@ const navItems: NavItem[] = [
   {
     icon: <UserCircleIcon />,
     name: "Admin Management",
-        subItems: [
+    subItems: [
       { name: "Create User", path: "/Create-user", pro: false },
       { name: "User Management", path: "/user-list", pro: false }, 
       { name: "Order Management", path: "/order", pro: false },
       { name: "backend-monitoring", path: "/backend-monitoring", pro: false },
       { name: "rate-limiting", path: "/rate-limiting", pro: false },
     ],
-  
   },
-    {
+  {
     icon: <UserCircleIcon />,
- name: "Crm Management",
-        subItems: [
+    name: "Crm Management",
+    subItems: [
       { name: "CRM User", path: "/crm", pro: false },
       { name: "Point Transaction", path: "/crm-Point-Transactions", pro: false }, 
       { name: "Tier Benefits", path: "/crm-LoyaltyDashboard", pro: false },
-       { name: "Tier Benefits Wizzard", path: "/crm-CreateTierBenefit", pro: false },
+      { name: "Tier Benefits Wizzard", path: "/crm-CreateTierBenefit", pro: false },
       { name: "Coupons", path: "/crm-CouponsList", pro: false },
-
     ],
-  
   },
-
-      {
+  {
     icon: <UserCircleIcon />,
- name: "Shipping Management",
-        subItems: [
+    name: "Shipping Management",
+    subItems: [
       { name: "Shipping List", path: "/Shipping", pro: false },
       { name: "Shipping Tracking", path: "/Shipping-tracking", pro: false }, 
-
     ],
-  
+  },
+  // NEW ANALYTICS & PAYMENT SECTION
+  {
+    icon: (
+      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+      </svg>
+    ),
+    name: "Analytics & Reports",
+    subItems: [
+      { name: "Analytics Dashboard", path: "/analytics-dashboard", pro: false, new: true },
+      // { name: "Revenue Analytics", path: "/analytics-dashboard", pro: false },
+      // { name: "Transaction Reports", path: "/analytics-dashboard", pro: false },
+      // { name: "Gateway Performance", path: "/analytics-dashboard", pro: false },
+    ],
+  },
+  {
+    icon: (
+      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+      </svg>
+    ),
+    name: "Payment Management",
+    subItems: [
+      { name: "Payment Dashboard", path: "/payment-management", pro: false, new: true },
+      // { name: "Process Payments", path: "/payment-management", pro: false },
+      // { name: "Payment Analytics", path: "/payment-management", pro: false },
+      // { name: "Refund Management", path: "/payment-management", pro: false },
+      // { name: "Transaction History", path: "/payment-management", pro: false },
+    ],
   },
   {
     icon: <UserCircleIcon />,
@@ -162,7 +178,6 @@ const AppSidebar: React.FC = () => {
   );
   const subMenuRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
-  // const isActive = (path: string) => location.pathname === path;
   const isActive = useCallback(
     (path: string) => location.pathname === path,
     [location.pathname]
@@ -312,7 +327,7 @@ const AppSidebar: React.FC = () => {
                               isActive(subItem.path)
                                 ? "menu-dropdown-badge-active"
                                 : "menu-dropdown-badge-inactive"
-                            } menu-dropdown-badge`}
+                            } menu-dropdown-badge bg-gradient-to-r from-purple-500 to-blue-600 text-white text-xs px-2 py-0.5 rounded-full font-medium animate-pulse`}
                           >
                             new
                           </span>
