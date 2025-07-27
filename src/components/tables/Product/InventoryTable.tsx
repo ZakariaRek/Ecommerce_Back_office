@@ -164,14 +164,29 @@ const formatCurrency = (amount: number): string => {
   }).format(amount);
 };
 
-const formatDate = (dateString: string): string => {
-  return new Intl.DateTimeFormat('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  }).format(new Date(dateString));
+const formatDate = (dateString: string | null | undefined): string => {
+  if (!dateString) {
+    return 'Not available';
+  }
+  
+  try {
+    const date = new Date(dateString);
+    // Check if the date is valid
+    if (isNaN(date.getTime())) {
+      return 'Invalid date';
+    }
+    
+    return new Intl.DateTimeFormat('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    }).format(date);
+  } catch (error) {
+    console.error('Error formatting date:', error);
+    return 'Invalid date';
+  }
 };
 
 const getStockStatus = (quantity: number, lowThreshold: number) => {
@@ -1024,7 +1039,7 @@ export default function InventoryList() {
                           {/* Last Updated */}
                           <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
                             <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
-                              <span>Updated: {formatDate(item.lastUpdated)}</span>
+<span>Updated: {formatDate(item.lastUpdated || item.updatedAt || item.createdAt)}</span>
                               <div className="flex items-center gap-1">
                                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -1610,10 +1625,12 @@ export default function InventoryList() {
                     Timeline
                   </h3>
                   <div className="space-y-3">
-                    <div>
-                      <span className="font-semibold text-gray-700 dark:text-gray-300">Last Updated:</span>
-                      <p className="text-gray-800 dark:text-gray-200 mt-1">{formatDate(selectedInventory.lastUpdated)}</p>
-                    </div>
+<div>
+  <span className="font-semibold text-gray-700 dark:text-gray-300">Last Updated:</span>
+  <p className="text-gray-800 dark:text-gray-200 mt-1">
+    {formatDate(selectedInventory.lastUpdated || selectedInventory.updatedAt || selectedInventory.createdAt)}
+  </p>
+</div>
                     <div>
                       <span className="font-semibold text-gray-700 dark:text-gray-300">Inventory ID:</span>
                       <p className="text-gray-800 dark:text-gray-200 mt-1 font-mono text-sm">{selectedInventory.id}</p>

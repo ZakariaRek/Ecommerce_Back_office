@@ -1,18 +1,18 @@
 import { useEffect, useRef, useState } from "react";
-
 import { Link } from "react-router";
 import { useSidebar } from "../context/SidebarContext";
+import { useAuth } from "../context/AuthContext"; // Add this import
 import { ThemeToggleButton } from "../components/common/ThemeToggleButton";
 import NotificationDropdown from "../components/header/NotificationDropdown";
 import UserDropdown from "../components/header/UserDropdown";
 import ShoppingCartDropdown from "./ShoppingCartDropdown";
 
-interface AppHeaderProps {
-  userId?: string; // You'll need to pass the current user ID from your auth context
-}
-
-const AppHeader: React.FC<AppHeaderProps> = ({ userId }) => {
+// Remove the userId prop since we'll get it from AuthContext
+const AppHeader: React.FC = () => {
   const [isApplicationMenuOpen, setApplicationMenuOpen] = useState(false);
+  
+  // Get user data from AuthContext
+  const { user, isAuthenticated, isLoading } = useAuth();
 
   const { isMobileOpen, toggleSidebar, toggleMobileSidebar } = useSidebar();
 
@@ -44,6 +44,16 @@ const AppHeader: React.FC<AppHeaderProps> = ({ userId }) => {
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, []);
+
+  // Handle notification received
+  const handleNotificationReceived = (notification: any) => {
+    console.log('New notification received in header:', notification);
+    
+    // You can add additional logic here like:
+    // - Show toast notifications
+    // - Update global state
+    // - Play notification sounds
+  };
 
   return (
     <header className="sticky top-0 flex w-full bg-white border-gray-200 z-40 dark:border-gray-800 dark:bg-gray-900 lg:border-b">
@@ -167,10 +177,26 @@ const AppHeader: React.FC<AppHeaderProps> = ({ userId }) => {
             {/* <!-- Dark Mode Toggler --> */}
             
             {/* <!-- Shopping Cart --> */}
-            <ShoppingCartDropdown userId={userId} />
+            {/* Pass userId to ShoppingCartDropdown as well if needed */}
+            {isAuthenticated && user?.id && (
+              <ShoppingCartDropdown userId={user.id} />
+            )}
             {/* <!-- Shopping Cart --> */}
             
-            <NotificationDropdown />
+            {/* <!-- Notification Menu Area --> */}
+            {/* Only show notifications if user is authenticated and loaded */}
+            {!isLoading && isAuthenticated && user?.id ? (
+              <NotificationDropdown 
+                userId={user.id}
+                maxNotifications={50}
+                onNotificationReceived={handleNotificationReceived}
+              />
+            ) : isLoading ? (
+              // Show loading spinner while auth is loading
+              <div className="flex items-center justify-center w-11 h-11">
+                <div className="w-4 h-4 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin"></div>
+              </div>
+            ) : null}
             {/* <!-- Notification Menu Area --> */}
           </div>
           {/* <!-- User Area --> */}
