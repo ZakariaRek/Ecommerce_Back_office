@@ -9,7 +9,7 @@ import {
 import { ProductService,ProductRequestDTO,ProductResponseDTO,ProductStatus } from "../../../services/Product.service";
 import { Product_Service_URL } from "../../../lib/apiEndPoints";
 
-// Helper function to construct image UR
+// Helper function to construct image URL
 const getImageUrl = (imagePath: string): string => {
   // Get server base URL: "http://localhost:8099"
   const serverBaseUrl = Product_Service_URL.replace('/api/products', '');
@@ -120,6 +120,76 @@ const Badge = ({
   );
 };
 
+// Star Rating Component
+const StarRating = ({ 
+  rating, 
+  maxStars = 5, 
+  size = 'sm',
+  showRating = false
+}: { 
+  rating: number; 
+  maxStars?: number; 
+  size?: 'xs' | 'sm' | 'md' | 'lg';
+  showRating?: boolean;
+}) => {
+  const sizes = {
+    xs: 'w-3 h-3',
+    sm: 'w-4 h-4', 
+    md: 'w-5 h-5',
+    lg: 'w-6 h-6'
+  };
+
+  const stars = [];
+  const fullStars = Math.floor(rating);
+  const hasHalfStar = rating % 1 !== 0;
+
+  // Full stars
+  for (let i = 0; i < fullStars; i++) {
+    stars.push(
+      <svg key={`full-${i}`} className={`${sizes[size]} text-yellow-400 fill-current`} viewBox="0 0 20 20">
+        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+      </svg>
+    );
+  }
+
+  // Half star
+  if (hasHalfStar) {
+    stars.push(
+      <div key="half" className={`${sizes[size]} relative`}>
+        <svg className={`${sizes[size]} text-gray-300 fill-current absolute`} viewBox="0 0 20 20">
+          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+        </svg>
+        <svg className={`${sizes[size]} text-yellow-400 fill-current absolute overflow-hidden`} style={{ clipPath: 'inset(0 50% 0 0)' }} viewBox="0 0 20 20">
+          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+        </svg>
+      </div>
+    );
+  }
+
+  // Empty stars
+  const emptyStars = maxStars - fullStars - (hasHalfStar ? 1 : 0);
+  for (let i = 0; i < emptyStars; i++) {
+    stars.push(
+      <svg key={`empty-${i}`} className={`${sizes[size]} text-gray-300 fill-current`} viewBox="0 0 20 20">
+        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+      </svg>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-1">
+      <div className="flex items-center">
+        {stars}
+      </div>
+      {showRating && (
+        <span className="text-sm text-gray-600 dark:text-gray-400 ml-1">
+          ({rating.toFixed(1)})
+        </span>
+      )}
+    </div>
+  );
+};
+
 export default function ProductList() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -130,13 +200,15 @@ export default function ProductList() {
   const [discountTypeFilter, setDiscountTypeFilter] = useState<string>('all');
   const [minDiscountValue, setMinDiscountValue] = useState<string>('');
   const [maxDiscountValue, setMaxDiscountValue] = useState<string>('');
+  const [minRating, setMinRating] = useState<string>(''); // New filter
+  const [reviewFilter, setReviewFilter] = useState<string>('all'); // New filter
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDiscountModal, setShowDiscountModal] = useState(false);
   const [showDiscountListModal, setShowDiscountListModal] = useState(false);
-  const [showEditDiscountModal, setShowEditDiscountModal] = useState(false); // New state
+  const [showEditDiscountModal, setShowEditDiscountModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -150,8 +222,8 @@ export default function ProductList() {
   const [selectedProductForDiscount, setSelectedProductForDiscount] = useState<Product | null>(null);
   const [loadingDiscounts, setLoadingDiscounts] = useState<Record<string, boolean>>({});
   const [isCreatingDiscount, setIsCreatingDiscount] = useState(false);
-  const [isUpdatingDiscount, setIsUpdatingDiscount] = useState(false); // New state
-  const [editingDiscount, setEditingDiscount] = useState<DiscountSummaryDTO | null>(null); // New state
+  const [isUpdatingDiscount, setIsUpdatingDiscount] = useState(false);
+  const [editingDiscount, setEditingDiscount] = useState<DiscountSummaryDTO | null>(null);
 
   // Edit form state
   const [editForm, setEditForm] = useState<ProductRequestDTO>({
@@ -176,7 +248,7 @@ export default function ProductList() {
     maxDiscountAmount: undefined
   });
 
-  // Edit discount form state (New)
+  // Edit discount form state
   const [editDiscountForm, setEditDiscountForm] = useState<DiscountRequestDTO>({
     discountType: DiscountType.PERCENTAGE,
     discountValue: 0,
@@ -250,16 +322,23 @@ export default function ProductList() {
     setDiscountTypeFilter('all');
     setMinDiscountValue('');
     setMaxDiscountValue('');
+    setMinRating('');
+    setReviewFilter('all');
     setShowAdvancedFilters(false);
   };
 
   // Check if any filters are active
   const hasActiveFilters = searchTerm || statusFilter !== 'all' || discountFilter !== 'all' || 
-                          discountTypeFilter !== 'all' || minDiscountValue || maxDiscountValue;
+                          discountTypeFilter !== 'all' || minDiscountValue || maxDiscountValue ||
+                          minRating || reviewFilter !== 'all';
+
   const filteredProducts = products.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          product.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         product.description.toLowerCase().includes(searchTerm.toLowerCase());
+                         product.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (product.reviews && product.reviews.some(review => 
+                           review.comment.toLowerCase().includes(searchTerm.toLowerCase())
+                         ));
     
     const matchesStatus = statusFilter === 'all' || product.status === statusFilter;
     
@@ -299,8 +378,30 @@ export default function ProductList() {
     } else if ((minDiscountValue || maxDiscountValue) && !hasActiveDiscounts) {
       matchesDiscountValue = false;
     }
+
+    // Review filtering
+    const averageRating = ProductService.calculateAverageRating(product.reviews || []);
+    const reviewCount = ProductService.getReviewCount(product);
     
-    return matchesSearch && matchesStatus && matchesDiscountFilter && matchesDiscountType && matchesDiscountValue;
+    let matchesRating = true;
+    if (minRating) {
+      const minRatingValue = parseFloat(minRating);
+      matchesRating = averageRating >= minRatingValue;
+    }
+    
+    let matchesReviewFilter = true;
+    if (reviewFilter === 'with-reviews') {
+      matchesReviewFilter = reviewCount > 0;
+    } else if (reviewFilter === 'without-reviews') {
+      matchesReviewFilter = reviewCount === 0;
+    } else if (reviewFilter === 'verified-reviews') {
+      matchesReviewFilter = ProductService.getVerifiedReviewCount(product) > 0;
+    } else if (reviewFilter === 'high-rated') {
+      matchesReviewFilter = averageRating >= 4.0 && reviewCount > 0;
+    }
+    
+    return matchesSearch && matchesStatus && matchesDiscountFilter && matchesDiscountType && 
+           matchesDiscountValue && matchesRating && matchesReviewFilter;
   });
 
   const getStockStatus = (stock: number) => {
@@ -325,7 +426,7 @@ export default function ProductList() {
       weight: product.weight,
       dimensions: product.dimensions,
       status: product.status,
-      images: product.images || [] // Ensure images is always an array
+      images: product.images || []
     });
     // Reset image upload state
     setSelectedFiles(null);
@@ -431,7 +532,7 @@ export default function ProductList() {
     setShowDiscountModal(true);
   };
 
-  // New function to handle edit discount
+  // Function to handle edit discount
   const handleEditDiscount = async (discount: DiscountSummaryDTO, productId: string) => {
     try {
       // Fetch full discount details
@@ -532,7 +633,7 @@ export default function ProductList() {
     }
   };
 
-  // New function to handle discount update
+  // Function to handle discount update
   const handleUpdateDiscount = async () => {
     if (!editingDiscount || !selectedProductForDiscount) return;
 
@@ -635,7 +736,6 @@ export default function ProductList() {
     setSelectedProductForDiscount(null);
   };
 
-  // New function to close edit discount modal
   const closeEditDiscountModal = () => {
     setShowEditDiscountModal(false);
     setEditingDiscount(null);
@@ -715,7 +815,7 @@ export default function ProductList() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br  from-slate-50 via-blue-50 to-purple-50 dark:from-gray-900 dark:via-blue-900 dark:to-purple-900 p-6">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 dark:from-gray-900 dark:via-blue-900 dark:to-purple-900 p-6">
         <div className="max-w-12xl mx-auto">
           <div className="floating-card rounded-3xl overflow-hidden backdrop-blur-xl">
             <div className="product-gradient text-white p-8 relative overflow-hidden">
@@ -792,7 +892,7 @@ export default function ProductList() {
                     </div>
                     <h1 className="text-4xl font-bold">Product Inventory</h1>
                   </div>
-                  <p className="text-xl text-white/80">Manage products and their discounts</p>
+                  <p className="text-xl text-white/80">Manage products, reviews, and discounts</p>
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="flex items-center gap-2 px-4 py-2 bg-white/20 rounded-full backdrop-blur-sm">
@@ -805,6 +905,12 @@ export default function ProductList() {
                       {Object.values(productDiscounts).reduce((acc, discounts) => 
                         acc + discounts.filter(d => DiscountService.isDiscountActive(d)).length, 0
                       )} Active Discounts
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 px-4 py-2 bg-white/20 rounded-full backdrop-blur-sm">
+                    <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse"></div>
+                    <span className="text-sm font-medium text-white">
+                      {products.reduce((acc, product) => acc + ProductService.getReviewCount(product), 0)} Reviews
                     </span>
                   </div>
                 </div>
@@ -824,7 +930,7 @@ export default function ProductList() {
                     </svg>
                     <input
                       type="text"
-                      placeholder="Search products by name, SKU, or description..."
+                      placeholder="Search products by name, SKU, description, or reviews..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       className="w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white transition-all duration-200"
@@ -852,6 +958,18 @@ export default function ProductList() {
                     <option value="with-discounts">With Active Discounts</option>
                     <option value="without-discounts">Without Discounts</option>
                     <option value="expired-discounts">With Expired Discounts</option>
+                  </select>
+
+                  <select
+                    value={reviewFilter}
+                    onChange={(e) => setReviewFilter(e.target.value)}
+                    className="px-4 py-3 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white transition-all duration-200"
+                  >
+                    <option value="all">All Reviews</option>
+                    <option value="with-reviews">With Reviews</option>
+                    <option value="without-reviews">Without Reviews</option>
+                    <option value="verified-reviews">Verified Reviews</option>
+                    <option value="high-rated">High Rated (4★+)</option>
                   </select>
                   
                   <button
@@ -937,12 +1055,17 @@ export default function ProductList() {
                       </button>
                     </div>
                   )}
-                  
-                  {discountTypeFilter !== 'all' && (
+
+                  {reviewFilter !== 'all' && (
                     <div className="flex items-center gap-1 px-3 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full text-sm">
-                      <span>Type: {discountTypeFilter.replace('_', ' ')}</span>
+                      <span>
+                        {reviewFilter === 'with-reviews' ? 'With Reviews' :
+                         reviewFilter === 'without-reviews' ? 'Without Reviews' :
+                         reviewFilter === 'verified-reviews' ? 'Verified Reviews' :
+                         reviewFilter === 'high-rated' ? 'High Rated (4★+)' : reviewFilter}
+                      </span>
                       <button
-                        onClick={() => setDiscountTypeFilter('all')}
+                        onClick={() => setReviewFilter('all')}
                         className="w-4 h-4 rounded-full bg-purple-200 dark:bg-purple-800 flex items-center justify-center hover:bg-purple-300 dark:hover:bg-purple-700 transition-colors"
                       >
                         <svg className="w-2 h-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -952,8 +1075,36 @@ export default function ProductList() {
                     </div>
                   )}
                   
-                  {(minDiscountValue || maxDiscountValue) && (
+                  {discountTypeFilter !== 'all' && (
                     <div className="flex items-center gap-1 px-3 py-1 bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300 rounded-full text-sm">
+                      <span>Type: {discountTypeFilter.replace('_', ' ')}</span>
+                      <button
+                        onClick={() => setDiscountTypeFilter('all')}
+                        className="w-4 h-4 rounded-full bg-pink-200 dark:bg-pink-800 flex items-center justify-center hover:bg-pink-300 dark:hover:bg-pink-700 transition-colors"
+                      >
+                        <svg className="w-2 h-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  )}
+                  
+                  {minRating && (
+                    <div className="flex items-center gap-1 px-3 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 rounded-full text-sm">
+                      <span>Min Rating: {minRating}★</span>
+                      <button
+                        onClick={() => setMinRating('')}
+                        className="w-4 h-4 rounded-full bg-yellow-200 dark:bg-yellow-800 flex items-center justify-center hover:bg-yellow-300 dark:hover:bg-yellow-700 transition-colors"
+                      >
+                        <svg className="w-2 h-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  )}
+                  
+                  {(minDiscountValue || maxDiscountValue) && (
+                    <div className="flex items-center gap-1 px-3 py-1 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-full text-sm">
                       <span>
                         Value: {minDiscountValue || '0'} - {maxDiscountValue || '∞'}
                       </span>
@@ -962,7 +1113,7 @@ export default function ProductList() {
                           setMinDiscountValue('');
                           setMaxDiscountValue('');
                         }}
-                        className="w-4 h-4 rounded-full bg-pink-200 dark:bg-pink-800 flex items-center justify-center hover:bg-pink-300 dark:hover:bg-pink-700 transition-colors"
+                        className="w-4 h-4 rounded-full bg-indigo-200 dark:bg-indigo-800 flex items-center justify-center hover:bg-indigo-300 dark:hover:bg-indigo-700 transition-colors"
                       >
                         <svg className="w-2 h-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12" />
@@ -982,10 +1133,10 @@ export default function ProductList() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
                       </svg>
                     </div>
-                    Discount Filters
+                    Advanced Filters
                   </h3>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     {/* Discount Type Filter */}
                     <div>
                       <label className="block text-sm font-medium text-orange-700 dark:text-orange-300 mb-2">
@@ -1017,9 +1168,6 @@ export default function ProductList() {
                         onChange={(e) => setMinDiscountValue(e.target.value)}
                         className="w-full px-4 py-3 border border-orange-300 dark:border-orange-600 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 dark:bg-gray-700 dark:text-white transition-all duration-200"
                       />
-                      <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">
-                        For % discounts: enter percentage value
-                      </p>
                     </div>
                     
                     {/* Max Discount Value */}
@@ -1036,9 +1184,25 @@ export default function ProductList() {
                         onChange={(e) => setMaxDiscountValue(e.target.value)}
                         className="w-full px-4 py-3 border border-orange-300 dark:border-orange-600 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 dark:bg-gray-700 dark:text-white transition-all duration-200"
                       />
-                      <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">
-                        For $ discounts: enter dollar amount
-                      </p>
+                    </div>
+
+                    {/* Min Rating Filter */}
+                    <div>
+                      <label className="block text-sm font-medium text-orange-700 dark:text-orange-300 mb-2">
+                        Min Rating
+                      </label>
+                      <select
+                        value={minRating}
+                        onChange={(e) => setMinRating(e.target.value)}
+                        className="w-full px-4 py-3 border border-orange-300 dark:border-orange-600 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 dark:bg-gray-700 dark:text-white transition-all duration-200"
+                      >
+                        <option value="">Any Rating</option>
+                        <option value="1">1★ and above</option>
+                        <option value="2">2★ and above</option>
+                        <option value="3">3★ and above</option>
+                        <option value="4">4★ and above</option>
+                        <option value="5">5★ only</option>
+                      </select>
                     </div>
                   </div>
                   
@@ -1059,14 +1223,20 @@ export default function ProductList() {
                       </button>
                       <button
                         onClick={() => {
-                          setDiscountFilter('with-discounts');
-                          setDiscountTypeFilter(DiscountType.FIXED_AMOUNT);
-                          setMinDiscountValue('10');
-                          setMaxDiscountValue('');
+                          setReviewFilter('high-rated');
+                          setMinRating('4');
                         }}
                         className="px-3 py-2 bg-orange-100 hover:bg-orange-200 dark:bg-orange-900/30 dark:hover:bg-orange-900/50 text-orange-700 dark:text-orange-300 rounded-lg text-sm font-medium transition-colors duration-200"
                       >
-                        $10+ Off
+                        Top Rated Products
+                      </button>
+                      <button
+                        onClick={() => {
+                          setReviewFilter('verified-reviews');
+                        }}
+                        className="px-3 py-2 bg-orange-100 hover:bg-orange-200 dark:bg-orange-900/30 dark:hover:bg-orange-900/50 text-orange-700 dark:text-orange-300 rounded-lg text-sm font-medium transition-colors duration-200"
+                      >
+                        Verified Reviews Only
                       </button>
                       <button
                         onClick={() => {
@@ -1080,12 +1250,7 @@ export default function ProductList() {
                         BOGO Deals
                       </button>
                       <button
-                        onClick={() => {
-                          setDiscountFilter('all');
-                          setDiscountTypeFilter('all');
-                          setMinDiscountValue('');
-                          setMaxDiscountValue('');
-                        }}
+                        onClick={clearAllFilters}
                         className="px-3 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-medium transition-colors duration-200"
                       >
                         Clear All Filters
@@ -1141,6 +1306,11 @@ export default function ProductList() {
                   const pricing = productPricing[product.id];
                   const activeDiscounts = discounts.filter(d => DiscountService.isDiscountActive(d));
                   const hasActiveDiscounts = activeDiscounts.length > 0;
+                  
+                  // Review data
+                  const averageRating = ProductService.calculateAverageRating(product.reviews || []);
+                  const reviewCount = ProductService.getReviewCount(product);
+                  const verifiedReviewCount = ProductService.getVerifiedReviewCount(product);
                   
                   return (
                     <div 
@@ -1268,6 +1438,23 @@ export default function ProductList() {
                         </div>
 
                         <div className="space-y-3">
+                          {/* Reviews Section */}
+                          {reviewCount > 0 && (
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <StarRating rating={averageRating} size="sm" showRating />
+                                <span className="text-sm text-gray-500 dark:text-gray-400">
+                                  ({reviewCount} review{reviewCount !== 1 ? 's' : ''})
+                                </span>
+                              </div>
+                              {verifiedReviewCount > 0 && (
+                                <Badge variant="success" size="sm">
+                                  {verifiedReviewCount} Verified
+                                </Badge>
+                              )}
+                            </div>
+                          )}
+
                           {/* Price and SKU */}
                           <div className="flex items-center justify-between">
                             <div className="flex flex-col">
@@ -1375,65 +1562,6 @@ export default function ProductList() {
                       value={discountForm.discountType}
                       onChange={(e) => setDiscountForm(prev => ({ ...prev, discountType: e.target.value as DiscountType }))}
                       className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 dark:bg-gray-700 dark:text-white transition-all duration-200"
-                    >
-                      <option value={DiscountType.PERCENTAGE}>Percentage</option>
-                      <option value={DiscountType.FIXED_AMOUNT}>Fixed Amount</option>
-                      <option value={DiscountType.BUY_ONE_GET_ONE}>Buy One Get One</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Discount Value *
-                    </label>
-                    <input
-                      type="number"
-                      required
-                      min="0.01"
-                      step={discountForm.discountType === DiscountType.PERCENTAGE ? "0.01" : "0.01"}
-                      max={discountForm.discountType === DiscountType.PERCENTAGE ? "100" : undefined}
-                      value={discountForm.discountValue}
-                      onChange={(e) => setDiscountForm(prev => ({ ...prev, discountValue: parseFloat(e.target.value) || 0 }))}
-                      className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 dark:bg-gray-700 dark:text-white transition-all duration-200"
-                      placeholder={discountForm.discountType === DiscountType.PERCENTAGE ? "0.01-100" : "0.01"}
-                    />
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      {discountForm.discountType === DiscountType.PERCENTAGE 
-                        ? "Enter percentage (0.01 - 100)" 
-                        : discountForm.discountType === DiscountType.FIXED_AMOUNT
-                        ? "Enter amount in dollars"
-                        : "Value for BOGO discount"}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Start Date *
-                    </label>
-                    <input
-                      type="datetime-local"
-                      required
-                      min={new Date(Date.now() + 60000).toISOString().slice(0, 16)} // 1 minute from now
-                      value={discountForm.startDate}
-                      onChange={(e) => setDiscountForm(prev => ({ ...prev, startDate: e.target.value }))}
-                      className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 dark:bg-gray-700 dark:text-white transition-all duration-200"
-                    />
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Must be in the future</p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      End Date *
-                    </label>
-                    <input
-                      type="datetime-local"
-                      required
-                      min={discountForm.startDate || new Date(Date.now() + 60000).toISOString().slice(0, 16)}
-                      value={discountForm.endDate}
-                      onChange={(e) => setDiscountForm(prev => ({ ...prev, endDate: e.target.value }))}
-                      className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 dark:bg-gray-700 dark:text-white transition-all duration-200"
                     />
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Must be after start date</p>
                   </div>
@@ -1508,7 +1636,7 @@ export default function ProductList() {
 
       {/* Edit Discount Modal */}
       {showEditDiscountModal && editingDiscount && selectedProductForDiscount && (
-        <div className="fixed inset-0 z-80 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="bg-white dark:bg-gray-800 rounded-3xl overflow-hidden max-w-2xl w-full max-h-[90vh] overflow-y-auto custom-scrollbar shadow-2xl">
             <div className="discount-gradient text-white p-8 relative overflow-hidden">
               <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16 animate-float"></div>
@@ -1670,7 +1798,7 @@ export default function ProductList() {
         </div>
       )}
 
-      {/* Discount List Modal - Updated with Edit functionality */}
+      {/* Discount List Modal */}
       {showDiscountListModal && selectedProductForDiscount && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="bg-white dark:bg-gray-800 rounded-3xl overflow-hidden max-w-4xl w-full max-h-[90vh] overflow-y-auto custom-scrollbar shadow-2xl">
@@ -2177,17 +2305,17 @@ export default function ProductList() {
         </div>
       )}
 
-      {/* Detail Modal */}
+      {/* Detail Modal - Enhanced with Reviews */}
       {showDetailModal && selectedProduct && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-3xl overflow-hidden max-w-4xl w-full max-h-[90vh] overflow-y-auto custom-scrollbar shadow-2xl">
+          <div className="bg-white dark:bg-gray-800 rounded-3xl overflow-hidden max-w-6xl w-full max-h-[90vh] overflow-y-auto custom-scrollbar shadow-2xl">
             <div className="product-gradient text-white p-8 relative overflow-hidden">
               <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16 animate-float"></div>
               <div className="relative">
                 <div className="flex items-center justify-between">
                   <div>
                     <h2 className="text-3xl font-bold mb-2">{selectedProduct.name}</h2>
-                    <p className="text-white/80">Product Details & Pricing</p>
+                    <p className="text-white/80">Product Details, Reviews & Pricing</p>
                   </div>
                   <button
                     onClick={closeDetailModal}
@@ -2202,7 +2330,7 @@ export default function ProductList() {
             </div>
 
             <div className="p-8">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Left Column - Images */}
                 <div className="space-y-6">
                   <div>
@@ -2255,7 +2383,7 @@ export default function ProductList() {
                   </div>
                 </div>
 
-                {/* Right Column - Details with Pricing */}
+                {/* Middle Column - Product Details */}
                 <div className="space-y-6">
                   {/* Pricing & Discounts */}
                   {productPricing[selectedProduct.id] ? (
@@ -2408,58 +2536,157 @@ export default function ProductList() {
                       </div>
                     </div>
                   </div>
+                </div>
+
+                {/* Right Column - Reviews */}
+                <div className="space-y-6">
+                  {/* Reviews Summary */}
+                  <div className="bg-gradient-to-br from-yellow-50 to-amber-50 dark:from-yellow-900/20 dark:to-amber-900/20 rounded-2xl p-6 border border-yellow-200 dark:border-yellow-800">
+                    <h3 className="text-lg font-semibold text-yellow-800 dark:text-yellow-200 mb-4 flex items-center">
+                      <div className="w-8 h-8 bg-yellow-500 rounded-lg flex items-center justify-center mr-3">
+                        <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                        </svg>
+                      </div>
+                      Customer Reviews
+                    </h3>
+                    
+                    {selectedProduct.reviews && selectedProduct.reviews.length > 0 ? (
+                      <>
+                        {/* Review Stats */}
+                        <div className="text-center mb-4">
+                          <div className="flex items-center justify-center gap-2 mb-2">
+                            <span className="text-3xl font-bold text-yellow-700 dark:text-yellow-300">
+                              {ProductService.calculateAverageRating(selectedProduct.reviews).toFixed(1)}
+                            </span>
+                            <StarRating 
+                              rating={ProductService.calculateAverageRating(selectedProduct.reviews)} 
+                              size="md" 
+                            />
+                          </div>
+                          <p className="text-sm text-yellow-600 dark:text-yellow-400">
+                            Based on {selectedProduct.reviews.length} review{selectedProduct.reviews.length !== 1 ? 's' : ''}
+                          </p>
+                          {ProductService.getVerifiedReviewCount(selectedProduct) > 0 && (
+                            <p className="text-xs text-yellow-500 dark:text-yellow-500 mt-1">
+                              {ProductService.getVerifiedReviewCount(selectedProduct)} verified purchase{ProductService.getVerifiedReviewCount(selectedProduct) !== 1 ? 's' : ''}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Rating Distribution */}
+                        <div className="space-y-2 mb-4">
+                          {[5, 4, 3, 2, 1].map(rating => {
+                            const count = selectedProduct.reviews.filter(r => r.rating === rating).length;
+                            const percentage = selectedProduct.reviews.length > 0 ? (count / selectedProduct.reviews.length) * 100 : 0;
+                            return (
+                              <div key={rating} className="flex items-center gap-2 text-sm">
+                                <span className="text-yellow-700 dark:text-yellow-300 w-8">{rating}★</span>
+                                <div className="flex-1 bg-yellow-200 dark:bg-yellow-800 rounded-full h-2">
+                                  <div 
+                                    className="bg-yellow-500 h-2 rounded-full transition-all duration-300" 
+                                    style={{ width: `${percentage}%` }}
+                                  ></div>
+                                </div>
+                                <span className="text-yellow-600 dark:text-yellow-400 w-8 text-right">{count}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-center py-4">
+                        <p className="text-yellow-600 dark:text-yellow-400">No reviews yet</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Individual Reviews */}
+                  {selectedProduct.reviews && selectedProduct.reviews.length > 0 && (
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 max-h-96 overflow-y-auto custom-scrollbar">
+                      <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Recent Reviews</h4>
+                      <div className="space-y-4">
+                        {selectedProduct.reviews.slice(0, 5).map((review) => (
+                          <div key={review.id} className="border-b border-gray-200 dark:border-gray-700 last:border-b-0 pb-4 last:pb-0">
+                            <div className="flex items-center gap-2 mb-2">
+                              <StarRating rating={review.rating} size="sm" />
+                              {review.verified && (
+                                <Badge variant="success" size="sm">Verified</Badge>
+                              )}
+                              <span className="text-xs text-gray-500 dark:text-gray-400">
+                                {ProductService.formatReviewDate(review.createdAt)}
+                              </span>
+                            </div>
+                            <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed">
+                              {review.comment}
+                            </p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                              User ID: {review.userId.slice(0, 8)}...
+                            </p>
+                          </div>
+                        ))}
+                        {selectedProduct.reviews.length > 5 && (
+                          <p className="text-sm text-gray-500 dark:text-gray-400 text-center pt-2">
+                            And {selectedProduct.reviews.length - 5} more review{selectedProduct.reviews.length - 5 !== 1 ? 's' : ''}...
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Action Buttons */}
-                  <div className="flex gap-3">
+                  <div className="space-y-3">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         closeDetailModal();
                         handleEdit(e, selectedProduct);
                       }}
-                      className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-xl font-medium transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-2"
+                      className="w-full px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-xl font-medium transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-2"
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                       </svg>
                       Edit Product
                     </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        closeDetailModal();
-                        handleCreateDiscount(e, selectedProduct);
-                      }}
-                      className="px-6 py-3 bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white rounded-xl font-medium transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-2"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                      </svg>
-                      Add Discount
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        closeDetailModal();
-                        handleDelete(e, selectedProduct);
-                      }}
-                      disabled={isDeleting === selectedProduct.id}
-                      className="px-6 py-3 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 disabled:from-red-300 disabled:to-red-400 text-white rounded-xl font-medium transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-2"
-                    >
-                      {isDeleting === selectedProduct.id ? (
-                        <>
-                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                          Deleting...
-                        </>
-                      ) : (
-                        <>
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          closeDetailModal();
+                          handleCreateDiscount(e, selectedProduct);
+                        }}
+                        className="px-6 py-3 bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white rounded-xl font-medium transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-2"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                        </svg>
+                        Add Discount
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          closeDetailModal();
+                          handleDelete(e, selectedProduct);
+                        }}
+                        disabled={isDeleting === selectedProduct.id}
+                        className="px-6 py-3 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 disabled:from-red-300 disabled:to-red-400 text-white rounded-xl font-medium transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-2"
+                      >
+                        {isDeleting === selectedProduct.id ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                            Deleting...
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                             </svg>
-                          Delete
-                        </>
-                      )}
-                    </button>
+                            Delete
+                          </>
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>

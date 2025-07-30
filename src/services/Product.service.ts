@@ -8,6 +8,16 @@ export enum ProductStatus {
 }
 
 // Interfaces
+export interface Review {
+  id: string;
+  userId: string;
+  rating: number;
+  comment: string;
+  verified: boolean;
+  createdAt: number[] | string; // Array format from backend or ISO string
+  updatedAt: number[] | string; // Array format from backend or ISO string
+}
+
 export interface ProductRequestDTO {
   name?: string;
   description?: string;
@@ -31,6 +41,7 @@ export interface ProductResponseDTO {
   sku: string;
   weight: number;
   dimensions: string;
+  reviews: Review[]; // Added reviews field
   images: string[];
   status: ProductStatus;
   createdAt: string;
@@ -46,6 +57,8 @@ export interface ProductSummaryDTO {
   category: string;
   isActive: boolean;
   supplierNames: string[];
+  reviewCount?: number; // Added review count
+  averageRating?: number; // Added average rating
 }
 
 // Add the missing ProductOption interface
@@ -56,6 +69,8 @@ export interface ProductOption {
   price?: number;
   stock?: number;
   status?: ProductStatus;
+  reviewCount?: number; // Added review count
+  averageRating?: number; // Added average rating
 }
 
 export interface CreateProductWithImagesResponse {
@@ -155,13 +170,16 @@ export class ProductService {
           sku: product.sku,
           price: product.price,
           stock: product.stock,
-          status: product.status
+          status: product.status,
+          reviewCount: product.reviews.length,
+          averageRating: this.calculateAverageRating(product.reviews)
         }));
     } catch (error) {
       console.error('Error fetching product options:', error);
       throw error;
     }
   }
+
   static async getProductNOOptions(): Promise<ProductOption[]> {
     try {
       const products = await this.getNoInventory();
@@ -174,7 +192,9 @@ export class ProductService {
         sku: product.sku,
         price: product.price,
         stock: product.stock,
-        status: product.status
+        status: product.status,
+        reviewCount: product.reviews?.length || 0,
+        averageRating: this.calculateAverageRating(product.reviews || [])
       }));
       
       
@@ -204,6 +224,7 @@ export class ProductService {
       throw error;
     }
   }
+
   static async getNoInventory(): Promise<ProductResponseDTO[]> {
     try {
       const response = await fetch(`http://localhost:8099/api/products/products/no-inventory`, {
@@ -510,6 +531,88 @@ export class ProductService {
     }
   }
 
+  // Review-related utility functions
+  static calculateAverageRating(reviews: Review[]): number {
+    if (!reviews || reviews.length === 0) return 0;
+    const sum = reviews.reduce((total, review) => total + review.rating, 0);
+    return Math.round((sum / reviews.length) * 10) / 10; // Round to 1 decimal place
+  }
+
+  static getReviewCount(product: ProductResponseDTO): number {
+    return product.reviews?.length || 0;
+  }
+
+  static getVerifiedReviewCount(product: ProductResponseDTO): number {
+    return product.reviews?.filter(review => review.verified).length || 0;
+  }
+
+  static formatReviewDate(dateArray: number[] | string): string {
+    try {
+      let date: Date;
+      
+      if (Array.isArray(dateArray)) {
+        // Handle array format: [year, month, day, hour, minute, second, nanosecond]
+        const [year, month, day, hour = 0, minute = 0, second = 0] = dateArray;
+        date = new Date(year, month - 1, day, hour, minute, second); // month is 0-indexed in JS
+      } else {
+        // Handle string format
+        date = new Date(dateArray);
+      }
+
+      return new Intl.DateTimeFormat('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      }).format(date);
+    } catch (error) {
+      console.error('Error formatting review date:', error);
+      return 'Invalid date';
+    }
+  }
+
+  static getReviewSummary(reviews: Review[]): {
+    averageRating: number;
+    totalReviews: number;
+    verifiedReviews: number;
+    ratingDistribution: { [key: number]: number };
+  } {
+    if (!reviews || reviews.length === 0) {
+      return {
+        averageRating: 0,
+        totalReviews: 0,
+        verifiedReviews: 0,
+        ratingDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
+      };
+    }
+
+    const ratingDistribution = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    
+    reviews.forEach(review => {
+      if (review.rating >= 1 && review.rating <= 5) {
+        ratingDistribution[review.rating]++;
+      }
+    });
+
+    return {
+      averageRating: this.calculateAverageRating(reviews),
+      totalReviews: reviews.length,
+      verifiedReviews: reviews.filter(review => review.verified).length,
+      ratingDistribution
+    };
+  }
+
+  static renderStarRating(rating: number, maxStars: number = 5): string {
+    const fullStars = Math.floor(rating);
+    const hasHalfStar = rating % 1 !== 0;
+    const emptyStars = maxStars - fullStars - (hasHalfStar ? 1 : 0);
+    
+    return '★'.repeat(fullStars) + 
+           (hasHalfStar ? '☆' : '') + 
+           '☆'.repeat(emptyStars);
+  }
+
   // Utility functions
   static formatCurrency(amount: number): string {
     return new Intl.NumberFormat('en-US', {
@@ -645,7 +748,10 @@ export class ProductService {
     return products.filter(product => 
       product.name.toLowerCase().includes(term) ||
       product.sku.toLowerCase().includes(term) ||
-      product.description.toLowerCase().includes(term)
+      product.description.toLowerCase().includes(term) ||
+      product.reviews.some(review => 
+        review.comment.toLowerCase().includes(term)
+      )
     );
   }
 
@@ -657,9 +763,19 @@ export class ProductService {
     return products.filter(product => product.status === status);
   }
 
+  static filterProductsByRating(
+    products: ProductResponseDTO[],
+    minRating: number
+  ): ProductResponseDTO[] {
+    return products.filter(product => {
+      const avgRating = this.calculateAverageRating(product.reviews);
+      return avgRating >= minRating;
+    });
+  }
+
   static sortProducts(
     products: ProductResponseDTO[], 
-    sortBy: 'name' | 'price' | 'stock' | 'createdAt' | 'updatedAt',
+    sortBy: 'name' | 'price' | 'stock' | 'createdAt' | 'updatedAt' | 'rating' | 'reviewCount',
     order: 'asc' | 'desc' = 'asc'
   ): ProductResponseDTO[] {
     return [...products].sort((a, b) => {
@@ -686,6 +802,14 @@ export class ProductService {
         case 'updatedAt':
           aValue = new Date(a.updatedAt).getTime();
           bValue = new Date(b.updatedAt).getTime();
+          break;
+        case 'rating':
+          aValue = this.calculateAverageRating(a.reviews);
+          bValue = this.calculateAverageRating(b.reviews);
+          break;
+        case 'reviewCount':
+          aValue = a.reviews.length;
+          bValue = b.reviews.length;
           break;
         default:
           return 0;
