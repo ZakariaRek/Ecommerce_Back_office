@@ -836,6 +836,6 @@ export default function NotificationDropdown({
           </Link>
         </div>
       </Dropdown>
-    </div>
+    </div>  
   );
 }
