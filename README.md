@@ -41,7 +41,7 @@
 
 ### Backend Integration
 ![Axios](https://img.shields.io/badge/Axios-5A29E4?style=for-the-badge&logo=axios&logoColor=white)
-![WebSocket](https://img.shields.io/badge/WebSocket-010101?style=for-the-badge&logo=socket.io&logoColor=white)
+
 ![Server Sent Events](https://img.shields.io/badge/SSE-FF6B6B?style=for-the-badge&logo=server&logoColor=white)
 
 </div>
